@@ -1,8 +1,9 @@
 package netconf
 
 const (
-	baseCap      = "urn:ietf:params:netconf:base"
-	stdCapPrefix = "urn:ietf:params:netconf:capability"
+	baseCap       = "urn:ietf:params:netconf:base"
+	stdCapPrefix  = "urn:ietf:params:netconf:capability"
+	baseNetconfNs = "urn:ietf:params:xml:ns:netconf:base:1.0"
 )
 
 const (

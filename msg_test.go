@@ -19,10 +19,9 @@ var rawXMLTests = []struct {
 		xml:     []byte("<RawXML></RawXML>"),
 	},
 	{
-		name:    "nil",
-		element: nil,
-		xml:     []byte("<RawXML></RawXML>"),
-		// we will never unmarshal back into a nil (see "empty" testcase)
+		name:        "nil",
+		element:     nil,
+		xml:         []byte("<RawXML></RawXML>"),
 		noUnmarshal: true,
 	},
 	{

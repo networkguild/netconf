@@ -49,7 +49,7 @@ func WithNotificationHandler(nh NotificationHandler) SessionOption {
 	return notificationHandlerOpt(nh)
 }
 
-// Session is represents a netconf session to a one given device.
+// Session represents a netconf session to a one given device.
 type Session struct {
 	tr        transport.Transport
 	sessionID uint64
@@ -66,7 +66,7 @@ type Session struct {
 
 // NotificationHandler function allows to work with received notifications.
 // A NotificationHandler function can be passed in as an option when calling Open method of Session object
-// A typical use of the NofificationHandler function is to retrieve notifications once they are received so
+// A typical use of the NotificationHandler function is to retrieve notifications once they are received so
 // that they can be parsed and/or stored somewhere.
 type NotificationHandler func(msg Notification)
 
@@ -158,12 +158,12 @@ func (s *Session) ClientCapabilities() []string {
 }
 
 // ServerCapabilities will return the capabilities returned by the server in
-// it's hello message.
+// its hello message.
 func (s *Session) ServerCapabilities() []string {
 	return s.serverCaps.All()
 }
 
-// startElement will walk though a xml.Decode until it finds a start element
+// startElement will walk through a xml.Decode until it finds a start element
 // and returns it.
 func startElement(d *xml.Decoder) (*xml.StartElement, error) {
 	for {
@@ -373,10 +373,8 @@ func (s *Session) Close(ctx context.Context) error {
 		XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 close-session"`
 	}
 
-	// This may fail so save the error but still close the underlying transport.
 	_, callErr := s.Do(ctx, &closeSession{})
 
-	// Close the connection and ignore errors if the remote side hung up first.
 	if err := s.tr.Close(); err != nil &&
 		!errors.Is(err, net.ErrClosed) &&
 		!errors.Is(err, io.EOF) &&

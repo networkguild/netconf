@@ -65,23 +65,6 @@ func TestMarshalDatastore(t *testing.T) {
 	}
 }
 
-func TestGetConfig(t *testing.T) {
-	ts := newTestServer(t)
-	sess := newSession(ts.transport())
-	go sess.recv()
-
-	ts.queueRespString("<rpc-reply xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='1'><data>foo</data></rpc-reply>")
-
-	got, err := sess.GetConfig(context.Background(), Running)
-	assert.NoError(t, err)
-
-	_, err = ts.popReqString()
-	assert.NoError(t, err)
-
-	want := []byte("<rpc-reply xmlns='urn:ietf:params:xml:ns:netconf:base:1.0' message-id='1'><data>foo</data></rpc-reply>")
-	assert.Equal(t, want, got.raw)
-}
-
 type structuredCfg struct {
 	XMLName xml.Name            `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 config"`
 	System  structuredCfgSystem `xml:"system"`
@@ -402,52 +385,6 @@ func TestUnlock(t *testing.T) {
 	}
 }
 
-func TestGet(t *testing.T) {
-	tt := []struct {
-		name    string
-		filter  any
-		opts    []GetOption
-		matches []*regexp.Regexp
-	}{
-		{
-			name:   "get ifm",
-			filter: `<ifm xmlns="urn:huawei:yang:huawei-ifm"/>`,
-			matches: []*regexp.Regexp{
-				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\S*<filter type="subtree">\S*<ifm xmlns="urn:huawei:yang:huawei-ifm"/>\S*</filter>\S*</get>`),
-			},
-		},
-		{
-			name:   "get devm",
-			filter: `<devm xmlns="urn:huawei:yang:huawei-devm"/>`,
-			opts:   []GetOption{WithDefaultMode("report-all")},
-			matches: []*regexp.Regexp{
-				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\S*<filter type="subtree">\S*<devm xmlns="urn:huawei:yang:huawei-devm"/>\S*</filter>\S*<with-defaults xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults">report-all</with-defaults>\S*</get>`),
-			},
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			ts := newTestServer(t)
-			sess := newSession(ts.transport())
-			go sess.recv()
-
-			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><data>daa</data></rpc-reply>`)
-
-			reply, err := sess.Get(context.Background(), tc.filter, tc.opts...)
-			assert.NoError(t, err)
-			assert.NotNil(t, reply)
-
-			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
-
-			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
-			}
-		})
-	}
-}
-
 func TestKillSession(t *testing.T) {
 	tt := []struct {
 		id      uint64
@@ -614,7 +551,7 @@ func TestCreateSubscription(t *testing.T) {
 		},
 		{
 			name:    "endTime option",
-			options: []CreateSubscriptionOption{WithEndTimeOption(end)},
+			options: []CreateSubscriptionOption{WithStopTimeOption(end)},
 			matches: []*regexp.Regexp{
 				regexp.MustCompile(`<create-subscription xmlns="urn:ietf:params:xml:ns:netconf:notification:1.0"><endTime>` + regexp.QuoteMeta(end.Format(time.RFC3339)) + `</endTime></create-subscription>`),
 			},

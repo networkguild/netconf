@@ -80,104 +80,14 @@ const (
 	// Running configuration datastore. Required by RFC6241
 	Running Datastore = "running"
 
-	// Candidate configuration configuration datastore.  Supported with the
+	// Candidate configuration datastore.  Supported with the
 	// `:candidate` capability defined in RFC6241 section 8.3
 	Candidate Datastore = "candidate"
 
-	// Startup configuration configuration datastore.  Supported with the
+	// Startup configuration datastore.  Supported with the
 	// `:startup` capability defined in RFC6241 section 8.7
 	Startup Datastore = "startup" //
 )
-
-type GetConfigReq struct {
-	XMLName xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 get-config"`
-	Source  Datastore `xml:"source"`
-	Filter  *Filter   `xml:"filter,omitempty"`
-}
-
-// GetConfig implements the <get-config> rpc operation defined in [RFC6241 7.1].
-// `source` is the datastore to query.
-//
-// [RFC6241 7.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.1
-func (s *Session) GetConfig(ctx context.Context, source Datastore) (*Reply, error) {
-	req := GetConfigReq{
-		Source: source,
-	}
-
-	return s.Do(ctx, &req)
-}
-
-type GetReq struct {
-	XMLName      xml.Name     `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 get"`
-	Filter       *Filter      `xml:"filter,omitempty"`
-	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
-}
-
-type Filter struct {
-	Type  string `xml:"type,attr,omitempty"`
-	Inner any    `xml:",innerxml"`
-}
-
-// DefaultsMode defines the strategies for merging configuration in a
-// `<edit-config> operation`.
-//
-// *Note*: in RFC6241 7.2 this is called the `operation` attribute and
-// `default-operation` parameter.  Since the `operation` term is already
-// overloaded this was changed to `MergeStrategy` for a cleaner API.
-type DefaultsMode string
-
-type withDefault DefaultsMode
-
-func (o withDefault) apply(req *GetReq) { req.WithDefaults = DefaultsMode(o) }
-
-// WithDefaultMode sets the `with-defaults` in the `<get>` or `<get-config>` operation.
-// This defines the behavior if default configs should be returned.
-// See [DefaultsMode] for the available options.
-func WithDefaultMode(op DefaultsMode) GetOption { return withDefault(op) }
-
-type GetOption interface {
-	apply(*GetReq)
-}
-
-// Get issues the `<get>` operation as defined in [RFC6241 7.7]
-// for retrieving running configuration and device state information.
-//
-// Only the `subtree` filter type is supported.
-//
-// [RFC6241 7.7] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.7
-func (s *Session) Get(ctx context.Context, filter any, opts ...GetOption) (*Reply, error) {
-	const filterType = "subtree"
-	var req GetReq
-
-	switch v := filter.(type) {
-	case string:
-		req.Filter = &Filter{
-			Type:  filterType,
-			Inner: []byte(v),
-		}
-	case []byte:
-		req.Filter = &Filter{
-			Type:  filterType,
-			Inner: v,
-		}
-	default:
-		req.Filter = &Filter{
-			Type:  filterType,
-			Inner: v,
-		}
-	}
-
-	for _, opt := range opts {
-		opt.apply(&req)
-	}
-
-	reply, err := s.Do(ctx, &req)
-	if err != nil {
-		return nil, err
-	}
-
-	return reply, nil
-}
 
 // MergeStrategy defines the strategies for merging configuration in a
 // `<edit-config> operation`.
@@ -237,7 +147,7 @@ const (
 	// SetOnly will not do any testing before applying it.
 	SetOnly TestStrategy = "set"
 
-	// Test only will validation the incoming configuration and return the
+	// TestOnly will validate the incoming configuration and return the
 	// results without modifying the underlying store.
 	TestOnly TestStrategy = "test-only"
 )
@@ -488,7 +398,7 @@ func (o PersistID) apply(req *CommitReq) { req.PersistID = string(o) }
 // `<edit-config>` operation took place.  This requires the device to
 // support the `:rollback-on-error` capability.
 
-// WithConfirmed will mark the commits as requiring confirmation or will rollback
+// WithConfirmed will mark the commits as requiring confirmation or will roll back
 // after the default timeout on the device (default should be 600s).  The commit
 // can be confirmed with another `<commit>` call without the confirmed option,
 // extended by calling with `Commit` With `WithConfirmed` or
@@ -542,55 +452,6 @@ func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) 
 	var req CancelCommitReq
 	for _, opt := range opts {
 		opt.applyCancelCommit(&req)
-	}
-
-	return s.Do(ctx, &req)
-}
-
-// CreateSubscriptionOption is a optional arguments to [Session.CreateSubscription] method
-type CreateSubscriptionOption interface {
-	apply(req *CreateSubscriptionReq)
-}
-
-type CreateSubscriptionReq struct {
-	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:notification:1.0 create-subscription"`
-	Stream    string   `xml:"stream,omitempty"`
-	Filter    *Filter  `xml:"filter,omitempty"`
-	StartTime string   `xml:"startTime,omitempty"`
-	EndTime   string   `xml:"endTime,omitempty"`
-}
-
-type stream string
-type startTime time.Time
-type endTime time.Time
-
-func (o stream) apply(req *CreateSubscriptionReq) {
-	req.Stream = string(o)
-}
-func (o startTime) apply(req *CreateSubscriptionReq) {
-	req.StartTime = time.Time(o).Format(time.RFC3339)
-}
-func (o endTime) apply(req *CreateSubscriptionReq) {
-	req.EndTime = time.Time(o).Format(time.RFC3339)
-}
-
-func WithStreamOption(s string) CreateSubscriptionOption        { return stream(s) }
-func WithStartTimeOption(st time.Time) CreateSubscriptionOption { return startTime(st) }
-func WithEndTimeOption(et time.Time) CreateSubscriptionOption   { return endTime(et) }
-
-// CreateSubscription issues the `<create-subscription>` operation as defined in [RFC5277 2.1.1]
-// for initiating an event notification subscription that will send asynchronous event notifications to the initiator.
-//
-// This requires the device to support the [NotificationCapability] capability
-//
-// [RFC5277 2.1.1] https://www.rfc-editor.org/rfc/rfc5277.html#section-2.1.1
-func (s *Session) CreateSubscription(ctx context.Context, opts ...CreateSubscriptionOption) (*Reply, error) {
-	if !s.serverCaps.Has(NotificationCapability) {
-		return nil, fmt.Errorf("server does not support notifications")
-	}
-	var req CreateSubscriptionReq
-	for _, opt := range opts {
-		opt.apply(&req)
 	}
 
 	return s.Do(ctx, &req)
