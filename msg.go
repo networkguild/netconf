@@ -1,7 +1,6 @@
 package netconf
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"strings"
@@ -16,15 +15,12 @@ var (
 		Local: "rpc-reply",
 	}
 
-	NofificationName = xml.Name{
+	NotificationName = xml.Name{
 		Space: "urn:ietf:params:xml:ns:netconf:notification:1.0",
 		Local: "notification",
 	}
-	nl = []byte("\n")
 )
 
-// RawXML captures the raw xml for the given element.  Used to process certain
-// elements later.
 type RawXML []byte
 
 func (x *RawXML) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
@@ -40,25 +36,26 @@ func (x *RawXML) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return nil
 }
 
-// MarshalXML implements xml.Marshaller.  Raw XML is passed verbatim, errors and
-// all.
+// MarshalXML implements xml.Marshaller.
 func (x *RawXML) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	inner := struct {
-		Data []byte `xml:",innerxml"`
-	}{
-		Data: []byte(*x),
+	if start.Name.Local == "data" {
+		inner := struct {
+			XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 data"`
+			Data    []byte   `xml:",innerxml"`
+		}{
+			Data: []byte(*x),
+		}
+		return e.Encode(&inner)
+	} else {
+		inner := struct {
+			Data []byte `xml:",innerxml"`
+		}{
+			Data: []byte(*x),
+		}
+		return e.EncodeElement(&inner, start)
 	}
-	return e.EncodeElement(&inner, start)
 }
 
-// helloMsg maps the xml value of the <hello> message in RFC6241
-type helloMsg struct {
-	XMLName      xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 hello"`
-	SessionID    uint64   `xml:"session-id,omitempty"`
-	Capabilities []string `xml:"capabilities>capability"`
-}
-
-// request maps the xml value of <rpc> in RFC6241
 type request struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc"`
 	MessageID uint64   `xml:"message-id,attr"`
@@ -70,39 +67,25 @@ func (msg *request) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 		return fmt.Errorf("operation cannot be nil")
 	}
 
-	// TODO: validate operation is named?
-
-	// alias the type to not cause recursion calling e.Encode
 	type rpcMsg request
 	inner := rpcMsg(*msg)
 	return e.Encode(&inner)
 }
 
-// Reply maps the xml value of <rpc-reply> in RFC6241
 type Reply struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc-reply"`
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
-	raw       []byte    `xml:"-"`
+	Body      RawXML    `xml:"data,omitempty"`
 }
 
-// Decode will decode the body of a reply into a value pointed to by v.  This is
-// a simple wrapper around xml.Unmarshal.
+func (r Reply) DataString() string {
+	d, _ := xml.MarshalIndent(&r.Body, "", "  ")
+	return string(d)
+}
+
 func (r Reply) Decode(v interface{}) error {
-	if r.raw == nil {
-		return fmt.Errorf("empty reply")
-	}
-	return xml.Unmarshal(r.raw, v)
-}
-
-// Raw returns the native message as it came from the server
-func (r Reply) Raw() []byte {
-	return bytes.TrimSuffix(r.raw, nl)
-}
-
-// String returns the message as string.
-func (r Reply) String() string {
-	return string(r.raw)
+	return xml.Unmarshal(r.Body, v)
 }
 
 func (r Reply) Err(severity ...ErrSeverity) error {
@@ -124,37 +107,15 @@ func (r Reply) Err(severity ...ErrSeverity) error {
 type Notification struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:notification:1.0 notification"`
 	EventTime time.Time `xml:"eventTime"`
-	raw       []byte    `xml:"-"`
+	Body      []byte    `xml:",innerxml"`
 }
 
-func ParseNotification(data []byte) (*Notification, error) {
-	notif := Notification{
-		raw: data,
-	}
-	if err := xml.Unmarshal(data, &notif); err != nil {
-		return nil, fmt.Errorf("couldn't parse reply: %v", err)
-	}
-
-	return &notif, nil
+func (r Notification) Decode(v interface{}) error {
+	return xml.Unmarshal(r.Body, v)
 }
 
-// Decode will decode the entire `notification` into a value pointed to by v.
-// This is a simple wrapper around xml.Unmarshal.
-func (n Notification) Decode(v interface{}) error {
-	if n.raw == nil {
-		return fmt.Errorf("empty reply")
-	}
-	return xml.Unmarshal(n.raw, v)
-}
-
-// Raw returns the native message as it came from the server
-func (n Notification) Raw() []byte {
-	return bytes.TrimSuffix(n.raw, nl)
-}
-
-// String returns the message as string.
-func (n Notification) String() string {
-	return string(n.raw)
+func (r Notification) String() string {
+	return string(r.Body)
 }
 
 type ErrSeverity string
@@ -199,17 +160,21 @@ const (
 )
 
 type RPCError struct {
-	Type     ErrType     `xml:"error-type"`
-	Tag      ErrTag      `xml:"error-tag"`
-	Severity ErrSeverity `xml:"error-severity"`
-	AppTag   string      `xml:"error-app-tag,omitempty"`
-	Path     string      `xml:"error-path,omitempty"`
-	Message  string      `xml:"error-message,omitempty"`
-	Info     RawXML      `xml:"error-info,omitempty"`
+	Type     ErrType     `xml:"error-type" json:"error-type"`
+	Tag      ErrTag      `xml:"error-tag" json:"error-tag"`
+	Severity ErrSeverity `xml:"error-severity" json:"error-severity"`
+	AppTag   string      `xml:"error-app-tag,omitempty" json:"error-app-tag,omitempty"`
+	Path     string      `xml:"error-path,omitempty" json:"error-path,omitempty"`
+	Message  string      `xml:"error-message,omitempty" json:"error-message,omitempty"`
+	Info     RawXML      `xml:"error-info,omitempty" json:"error-info,omitempty"`
 }
 
 func (e RPCError) Error() string {
-	return fmt.Sprintf("[rpc error] severity: %s, type: %s, tag: %s, msg: %s", e.Severity, e.Type, e.Tag, e.Message)
+	if e.Message != "" {
+		return e.Message
+	} else {
+		return string(e.Info)
+	}
 }
 
 type RPCErrors []RPCError

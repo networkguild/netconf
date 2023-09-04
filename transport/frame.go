@@ -29,9 +29,6 @@ type frameWriter interface {
 // RFC6242.  This supports End-of-Message and Chucked framing methods and
 // will move from End-of-Message to Chunked framing after the `Upgrade` method
 // has been called.
-//
-// This is not a transport on it's own (missing the `Close` method) and is
-// intended to be embedded into other transports.
 type Framer struct {
 	r io.Reader
 	w io.Writer
@@ -54,10 +51,10 @@ func NewFramer(r io.Reader, w io.Writer) *Framer {
 		bw: bufio.NewWriter(w),
 	}
 
-	capDir := os.Getenv("GONETCONF_FRAMED_CAPDIR")
+	capDir := os.Getenv("NETCONF_DEBUG_CAPTURE_DIR")
 	if capDir != "" {
 		if err := os.MkdirAll(capDir, 0o755); err != nil {
-			panic(fmt.Sprintf("GO_NETCONF_FRAMER: failed to create capture output dir: %v", err))
+			panic(fmt.Sprintf("NETCONF_DEBUG_CAPTURE_DIR: failed to create capture output dir: %v", err))
 		}
 
 		ts := time.Now().Format(time.RFC3339)
@@ -80,14 +77,13 @@ func NewFramer(r io.Reader, w io.Writer) *Framer {
 	return f
 }
 
-// DebugCapture will copy all *framed* input/output to the the given
+// DebugCapture will copy all *framed* input/output to the given
 // `io.Writers` for sent or recv data.  Either sent of recv can be nil to not
 // capture any data.  Useful for displaying to a screen or capturing to a file
 // for debugging.
 //
 // This needs to be called before `MsgReader` or `MsgWriter`.
 func (f *Framer) DebugCapture(in io.Writer, out io.Writer) {
-	// XXX: should there be a sentinel flag to indicate write/read has been done already?
 	if f.curReader != nil ||
 		f.curWriter != nil ||
 		f.bw.Buffered() > 0 ||
@@ -109,9 +105,8 @@ func (f *Framer) DebugCapture(in io.Writer, out io.Writer) {
 // Upgrade will cause the Framer to switch from End-of-Message framing to
 // Chunked framing.  This is usually called after netconf exchanged the hello
 // messages.
-func (t *Framer) Upgrade() {
-	// XXX: do we need to protect against race conditions (atomic/mutex?)
-	t.upgraded = true
+func (f *Framer) Upgrade() {
+	f.upgraded = true
 }
 
 // MsgReader returns a new io.Reader that is good for reading exactly one netconf
@@ -120,31 +115,31 @@ func (t *Framer) Upgrade() {
 // Only one reader can be used at a time.  When this is called with an existing
 // reader then the underlying reader is advanced to the start of the next message
 // and invalidates the old reader before returning a new one.
-func (t *Framer) MsgReader() (io.ReadCloser, error) {
-	if t.upgraded {
-		t.curReader = &chunkReader{r: t.br}
+func (f *Framer) MsgReader() (io.ReadCloser, error) {
+	if f.upgraded {
+		f.curReader = &chunkReader{r: f.br}
 	} else {
-		t.curReader = &eomReader{r: t.br}
+		f.curReader = &eomReader{r: f.br}
 	}
-	return t.curReader, nil
+	return f.curReader, nil
 }
 
 // MsgWriter returns an io.WriterCloser that is good for writing exactly one
 // netconf message.
 //
-// One one writer can be used at one time and calling this function with an
+// One writer can be used at one time and calling this function with an
 // existing, unclosed,  writer will result in an error.
-func (t *Framer) MsgWriter() (io.WriteCloser, error) {
-	if t.curWriter != nil && !t.curWriter.isClosed() {
+func (f *Framer) MsgWriter() (io.WriteCloser, error) {
+	if f.curWriter != nil && !f.curWriter.isClosed() {
 		return nil, ErrExistingWriter
 	}
 
-	if t.upgraded {
-		t.curWriter = &chunkWriter{w: t.bw}
+	if f.upgraded {
+		f.curWriter = &chunkWriter{w: f.bw}
 	} else {
-		t.curWriter = &eomWriter{w: t.bw}
+		f.curWriter = &eomWriter{w: f.bw}
 	}
-	return t.curWriter, nil
+	return f.curWriter, nil
 }
 
 var endOfChunks = []byte("\n##\n")
@@ -169,13 +164,10 @@ func (r *chunkReader) readHeader() error {
 		return err
 	}
 
-	// make sure the preamble of `\n#` which is used for both the start of a
-	// chuck and the end-of-chunk marker is valid.
 	if peeked[0] != '\n' || peeked[1] != '#' {
 		return ErrMalformedChunk
 	}
 
-	// check to see if we are at the end of the read
 	if peeked[2] == '#' && peeked[3] == '\n' {
 		if _, err := r.r.Discard(2); err != nil {
 			return err
@@ -213,7 +205,6 @@ func (r *chunkReader) Read(p []byte) (int, error) {
 		return 0, ErrInvalidIO
 	}
 
-	// still reading existing chunk
 	if r.chunkLeft <= 0 {
 		if err := r.readHeader(); err != nil {
 			return 0, err
@@ -234,7 +225,6 @@ func (r *chunkReader) ReadByte() (byte, error) {
 		return 0, ErrInvalidIO
 	}
 
-	// still reading existing chunk
 	if r.chunkLeft <= 0 {
 		if err := r.readHeader(); err != nil {
 			return 0, err
@@ -252,15 +242,26 @@ func (r *chunkReader) ReadByte() (byte, error) {
 // Close will read the rest of the frame and consume it including
 // the end-of-frame markers if we haven't already done so.
 func (r *chunkReader) Close() error {
-	// poison the reader so that it can no longer be used
 	defer func() { r.r = nil }()
+	for {
+		if r.chunkLeft <= 0 {
+			err := r.readHeader()
+			switch err {
+			case nil:
+				break
+			case io.EOF:
+				return nil
+			default:
+				return err
+			}
+		}
 
-	if r.chunkLeft > 0 {
-		if _, err := r.r.Discard(r.chunkLeft); err != nil {
+		discarded, err := r.r.Discard(r.chunkLeft)
+		if err != nil {
 			return err
 		}
+		r.chunkLeft -= discarded
 	}
-	return nil
 }
 
 type chunkWriter struct {
@@ -280,7 +281,6 @@ func (w *chunkWriter) Write(p []byte) (int, error) {
 }
 
 func (w *chunkWriter) Close() error {
-	// poison the writer to prevent writes after close
 	defer func() { w.w = nil }()
 	if _, err := w.w.Write(endOfChunks); err != nil {
 		return err
@@ -297,9 +297,6 @@ type eomReader struct {
 }
 
 func (r *eomReader) Read(p []byte) (int, error) {
-	// This probably isn't optimal however it looks like xml.Decoder
-	// mainly just called ReadByte() and this probably won't ever be
-	// used.
 	for i := 0; i < len(p); i++ {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -323,7 +320,6 @@ func (r *eomReader) ReadByte() (byte, error) {
 		return b, err
 	}
 
-	// look for the end of the message marker
 	if b == endOfMsg[0] {
 		peeked, err := r.r.Peek(len(endOfMsg) - 1)
 		if err != nil {
@@ -333,7 +329,6 @@ func (r *eomReader) ReadByte() (byte, error) {
 			return 0, err
 		}
 
-		// check if we are at the end of the message
 		if bytes.Equal(peeked, endOfMsg[1:]) {
 			if _, err := r.r.Discard(len(endOfMsg) - 1); err != nil {
 				return 0, err
@@ -349,7 +344,6 @@ func (r *eomReader) ReadByte() (byte, error) {
 // Close will read the rest of the frame and consume it including
 // the end-of-frame marker.
 func (r *eomReader) Close() error {
-	// poison the reader so that it can no longer be used
 	defer func() { r.r = nil }()
 
 	var err error
@@ -374,7 +368,6 @@ func (w *eomWriter) Write(p []byte) (int, error) {
 }
 
 func (w *eomWriter) Close() error {
-	// poison the writer to prevent writes after close
 	defer func() { w.w = nil }()
 
 	if err := w.w.WriteByte('\n'); err != nil {

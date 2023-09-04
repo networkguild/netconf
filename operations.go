@@ -34,10 +34,6 @@ func (b *ExtantBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error 
 	return nil
 }
 
-type OKResp struct {
-	OK ExtantBool `xml:"ok"`
-}
-
 type Datastore string
 
 func (s Datastore) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
@@ -45,9 +41,6 @@ func (s Datastore) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		return fmt.Errorf("datastores cannot be empty")
 	}
 
-	// XXX: it would be nice to actually just block names with crap in them
-	// instead of escaping them, but we need to find a list of what is allowed
-	// in an xml tag.
 	escaped, err := escapeXML(string(s))
 	if err != nil {
 		return fmt.Errorf("invalid string element: %w", err)
@@ -224,7 +217,7 @@ const (
 // updating an existing target config datastore.
 //
 // [RFC6241 7.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.2
-func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, opts ...EditConfigOption) (*Reply, error) {
+func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, opts ...EditConfigOption) error {
 	req := EditConfigReq{
 		Target: target,
 	}
@@ -250,7 +243,7 @@ func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, 
 		opt.apply(&req)
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 type CopyConfigReq struct {
@@ -268,13 +261,13 @@ type CopyConfigReq struct {
 // for the source or target datastore.
 //
 // [RFC6241 7.3] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.3
-func (s *Session) CopyConfig(ctx context.Context, source, target any) (*Reply, error) {
+func (s *Session) CopyConfig(ctx context.Context, source, target any) error {
 	req := CopyConfigReq{
 		Source: source,
 		Target: target,
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 type DeleteConfigReq struct {
@@ -286,12 +279,12 @@ type DeleteConfigReq struct {
 // for deleting a configuration datastore.
 //
 // [RFC6241 7.4] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.4
-func (s *Session) DeleteConfig(ctx context.Context, target Datastore) (*Reply, error) {
+func (s *Session) DeleteConfig(ctx context.Context, target Datastore) error {
 	req := DeleteConfigReq{
 		Target: target,
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 type LockReq struct {
@@ -303,26 +296,26 @@ type LockReq struct {
 // for locking the entire configuration datastore.
 //
 // [RFC6241 7.5] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.5
-func (s *Session) Lock(ctx context.Context, target Datastore) (*Reply, error) {
+func (s *Session) Lock(ctx context.Context, target Datastore) error {
 	req := LockReq{
 		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "lock"},
 		Target:  target,
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 // Unlock issues the `<unlock>` operation as defined in [RFC6241 7.6]
 // for releasing a configuration lock, previously obtained with the [Session.Lock] operation.
 //
 // [RFC6241 7.6] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.6
-func (s *Session) Unlock(ctx context.Context, target Datastore) (*Reply, error) {
+func (s *Session) Unlock(ctx context.Context, target Datastore) error {
 	req := LockReq{
 		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "unlock"},
 		Target:  target,
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 type KillSessionReq struct {
@@ -352,15 +345,15 @@ type ValidateReq struct {
 // the device to support the [ValidateCapability] capability
 //
 // [RFC6241 8.6.4.1] https://www.rfc-editor.org/rfc/rfc6241.html#section-8.6.4.1
-func (s *Session) Validate(ctx context.Context, source any) (*Reply, error) {
+func (s *Session) Validate(ctx context.Context, source any) error {
 	if !s.serverCaps.Has(ValidateCapability) {
-		return nil, fmt.Errorf("server does not support validate")
+		return fmt.Errorf("server does not support validate")
 	}
 	req := ValidateReq{
 		Source: source,
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 type CommitReq struct {
@@ -423,17 +416,22 @@ func WithPersistID(id string) PersistID { return PersistID(id) }
 
 // Commit will commit a candidate config to the running config. This requires
 // the device to support the `:candidate` capability.
-func (s *Session) Commit(ctx context.Context, opts ...CommitOption) (*Reply, error) {
+func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
 	var req CommitReq
 	for _, opt := range opts {
 		opt.apply(&req)
 	}
 
+	if req.Confirmed {
+		if !s.serverCaps.Has(ConfirmedCommitCapability) {
+			return fmt.Errorf("server does not support confirmed config")
+		}
+	}
 	if req.PersistID != "" && req.Confirmed {
-		return nil, fmt.Errorf("PersistID cannot be used with Confirmed/ConfirmedTimeout or Persist options")
+		return fmt.Errorf("PersistID cannot be used with Confirmed/ConfirmedTimeout or Persist options")
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 // CancelCommitOption is a optional arguments to [Session.CancelCommit] method
@@ -448,13 +446,13 @@ type CancelCommitReq struct {
 	PersistID string   `xml:"persist-id,omitempty"`
 }
 
-func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) (*Reply, error) {
+func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) error {
 	var req CancelCommitReq
 	for _, opt := range opts {
 		opt.applyCancelCommit(&req)
 	}
 
-	return s.Do(ctx, &req)
+	return s.Call(ctx, &req, nil)
 }
 
 // Dispatch issues custom `<rpc>` operation

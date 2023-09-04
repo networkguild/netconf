@@ -313,7 +313,6 @@ func BenchmarkEOMReadByte(b *testing.B) {
 		name string
 		r    io.ByteReader
 	}{
-		// test against bufio as a "baseline"
 		{"bufio", bufio.NewReader(src)},
 		{"framereader", &eomReader{r: bufio.NewReader(src)}},
 	}
@@ -336,7 +335,6 @@ func BenchmarkEOMRead(b *testing.B) {
 		name string
 		r    io.Reader
 	}{
-		// test against a standard reader and a bufio for a baseline
 		{"bare", onlyReader{src}},
 		{"bufio", onlyReader{bufio.NewReader(src)}},
 		{"framereader", onlyReader{&eomReader{r: bufio.NewReader(src)}}},
@@ -354,7 +352,7 @@ func BenchmarkEOMRead(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				b.SetBytes(int64(n))
+				b.SetBytes(n)
 			}
 
 		})

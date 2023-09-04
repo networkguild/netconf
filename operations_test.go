@@ -168,9 +168,8 @@ func TestEditConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.EditConfig(context.Background(), tc.target, tc.config, tc.options...)
+			err := sess.EditConfig(context.Background(), tc.target, tc.config, tc.options...)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
@@ -229,9 +228,8 @@ func TestCopyConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.CopyConfig(context.Background(), tc.source, tc.target)
+			err := sess.CopyConfig(context.Background(), tc.source, tc.target)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
@@ -264,9 +262,8 @@ func TestDeleteConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.DeleteConfig(context.Background(), tc.target)
+			err := sess.DeleteConfig(context.Background(), tc.target)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
@@ -302,9 +299,8 @@ func TestValidateConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.Validate(context.Background(), tc.source)
+			err := sess.Validate(context.Background(), tc.source)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
@@ -337,7 +333,7 @@ func TestLock(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			_, err := sess.Lock(context.Background(), tc.target)
+			err := sess.Lock(context.Background(), tc.target)
 			assert.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -371,9 +367,8 @@ func TestUnlock(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.Unlock(context.Background(), tc.target)
+			err := sess.Unlock(context.Background(), tc.target)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
@@ -466,13 +461,13 @@ func TestCommit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess := newSession(ts.transport())
+			sess.serverCaps = newCapabilitySet(ConfirmedCommitCapability)
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.Commit(context.Background(), tc.options...)
+			err := sess.Commit(context.Background(), tc.options...)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
@@ -513,70 +508,8 @@ func TestCancelCommit(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.CancelCommit(context.Background(), tc.options...)
+			err := sess.CancelCommit(context.Background(), tc.options...)
 			assert.NoError(t, err)
-			assert.NotNil(t, reply)
-
-			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
-
-			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
-			}
-		})
-	}
-}
-
-func TestCreateSubscription(t *testing.T) {
-	start := time.Date(2023, time.June, 07, 18, 31, 48, 00, time.UTC)
-	end := time.Date(2023, time.June, 07, 18, 33, 48, 00, time.UTC)
-
-	tt := []struct {
-		name    string
-		options []CreateSubscriptionOption
-		matches []*regexp.Regexp
-	}{
-		{
-			name: "noOptions",
-			matches: []*regexp.Regexp{
-				regexp.MustCompile(`<create-subscription xmlns="urn:ietf:params:xml:ns:netconf:notification:1.0"></create-subscription>`),
-			},
-		},
-		{
-			name:    "startTime option",
-			options: []CreateSubscriptionOption{WithStartTimeOption(start)},
-			matches: []*regexp.Regexp{
-				regexp.MustCompile(`<create-subscription xmlns="urn:ietf:params:xml:ns:netconf:notification:1.0"><startTime>` + regexp.QuoteMeta(start.Format(time.RFC3339)) + `</startTime></create-subscription>`),
-			},
-		},
-		{
-			name:    "endTime option",
-			options: []CreateSubscriptionOption{WithStopTimeOption(end)},
-			matches: []*regexp.Regexp{
-				regexp.MustCompile(`<create-subscription xmlns="urn:ietf:params:xml:ns:netconf:notification:1.0"><endTime>` + regexp.QuoteMeta(end.Format(time.RFC3339)) + `</endTime></create-subscription>`),
-			},
-		},
-		{
-			name:    "stream option",
-			options: []CreateSubscriptionOption{WithStreamOption("thestream")},
-			matches: []*regexp.Regexp{
-				regexp.MustCompile(`<create-subscription xmlns="urn:ietf:params:xml:ns:netconf:notification:1.0"><stream>thestream</stream></create-subscription>`),
-			},
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			ts := newTestServer(t)
-			sess := newSession(ts.transport())
-			sess.serverCaps = newCapabilitySet(NotificationCapability)
-			go sess.recv()
-
-			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
-
-			reply, err := sess.CreateSubscription(context.Background(), tc.options...)
-			assert.NoError(t, err)
-			assert.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
 			assert.NoError(t, err)
