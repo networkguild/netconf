@@ -30,7 +30,7 @@ func TestGetConfig(t *testing.T) {
 			name:   "get-config running filter",
 			source: Running,
 			options: []GetOption{
-				WithFilter(`<interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces"/>`),
+				WithSubtreeFilter(`<interfaces xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces"/>`),
 			},
 			matches: []*regexp.Regexp{
 				regexp.MustCompile(`<source>\S*<running/>\S*</source>`),
@@ -77,7 +77,7 @@ func TestGet(t *testing.T) {
 		{
 			name: "get ifm",
 			options: []GetOption{
-				WithFilter(`<ifm xmlns="urn:huawei:yang:huawei-ifm"/>`),
+				WithSubtreeFilter(`<ifm xmlns="urn:huawei:yang:huawei-ifm"/>`),
 			},
 			matches: []*regexp.Regexp{
 				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\S*<filter type="subtree">\S*<ifm xmlns="urn:huawei:yang:huawei-ifm"/>\S*</filter>\S*</get>`),
@@ -87,7 +87,7 @@ func TestGet(t *testing.T) {
 			name: "get devm",
 			options: []GetOption{
 				WithDefaultMode("report-all"),
-				WithFilter(`<devm xmlns="urn:huawei:yang:huawei-devm"/>`),
+				WithSubtreeFilter(`<devm xmlns="urn:huawei:yang:huawei-devm"/>`),
 			},
 			matches: []*regexp.Regexp{
 				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\S*<filter type="subtree">\S*<devm xmlns="urn:huawei:yang:huawei-devm"/>\S*</filter>\S*<with-defaults xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults">report-all</with-defaults>\S*</get>`),

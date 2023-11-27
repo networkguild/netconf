@@ -1,7 +1,6 @@
 package netconf
 
 import (
-	"bytes"
 	"context"
 	"encoding/xml"
 	"errors"
@@ -103,6 +102,12 @@ func Open(transport transport.Transport, opts ...SessionOption) (*Session, error
 	return s, nil
 }
 
+type hello struct {
+	XMLName      xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 hello"`
+	SessionID    uint64   `xml:"session-id,omitempty"`
+	Capabilities []string `xml:"capabilities>capability"`
+}
+
 // handshake exchanges handshake messages and reports if there are any errors.
 func (s *Session) handshake() error {
 	r, err := s.tr.MsgReader()
@@ -111,7 +116,7 @@ func (s *Session) handshake() error {
 	}
 	defer r.Close()
 
-	var serverMsg helloMsg
+	var serverMsg hello
 	if err := xml.NewDecoder(r).Decode(&serverMsg); err != nil {
 		return fmt.Errorf("failed to read server hello message: %w", err)
 	}
@@ -127,15 +132,13 @@ func (s *Session) handshake() error {
 	s.serverCaps = newCapabilitySet(serverMsg.Capabilities...)
 	s.sessionID = serverMsg.SessionID
 
-	clientMsg := helloMsg{
+	clientMsg := hello{
 		Capabilities: s.clientCaps.All(),
 	}
 	if err := s.writeMsg(&clientMsg); err != nil {
 		return fmt.Errorf("failed to write hello message: %w", err)
 	}
 
-	// upgrade the transport if we are on a larger version and the transport
-	// supports it.
 	const baseCap11 = baseCap + ":1.1"
 	if s.serverCaps.Has(baseCap11) && s.clientCaps.Has(baseCap11) {
 		if upgrader, ok := s.tr.(interface{ Upgrade() }); ok {
@@ -190,31 +193,26 @@ func (s *Session) recvMsg() error {
 	}
 	defer r.Close()
 
-	msg, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-
-	dec := xml.NewDecoder(bytes.NewReader(msg))
+	dec := xml.NewDecoder(r)
 	root, err := startElement(dec)
 	if err != nil {
 		return err
 	}
 
 	switch root.Name {
-	case NofificationName:
+	case NotificationName:
 		if s.notificationHandler == nil {
 			log.Printf("Received notification but no handler is set")
 			return nil
 		}
 
-		notif := Notification{raw: msg}
+		var notif Notification
 		if err := dec.DecodeElement(&notif, root); err != nil {
 			return fmt.Errorf("failed to decode notification message: %w", err)
 		}
 		s.notificationHandler(notif)
 	case RPCReplyName:
-		reply := Reply{raw: msg}
+		var reply Reply
 		if err := dec.DecodeElement(&reply, root); err != nil {
 			return fmt.Errorf("failed to decode rpc-reply message: %w", err)
 		}
@@ -309,7 +307,7 @@ func (s *Session) send(ctx context.Context, msg *request) (chan Reply, error) {
 }
 
 // Do issues a rpc call for the given NETCONF operation returning a Reply.  RPC
-// errors (i.e erros in the `<rpc-errors>` section of the `<rpc-reply>`) are
+// errors (i.e. errors in the `<rpc-errors>` section of the `<rpc-reply>`) are
 // converted into go errors automatically.  Instead use `reply.Err()` or
 // `reply.RPCErrors` to access the errors and/or warnings.
 func (s *Session) Do(ctx context.Context, req any) (*Reply, error) {
@@ -329,7 +327,7 @@ func (s *Session) Do(ctx context.Context, req any) (*Reply, error) {
 			return nil, ErrClosed
 		}
 		if reply.Err() != nil {
-			return &reply, reply.Err()
+			return nil, reply.Err()
 		}
 		return &reply, nil
 	case <-ctx.Done():

@@ -38,8 +38,6 @@ func ExpandCapability(s string) string {
 	return stdCapPrefix + s
 }
 
-// XXX: may want to expose this type publicly in the future when the api has
-// stabilized?
 type capabilitySet struct {
 	caps map[string]struct{}
 }
@@ -53,19 +51,28 @@ func newCapabilitySet(capabilities ...string) capabilitySet {
 }
 
 func (cs *capabilitySet) Add(capabilities ...string) {
-	for _, cap := range capabilities {
-		cap = ExpandCapability(cap)
-		cs.caps[cap] = struct{}{}
+	if cs == nil {
+		return
+	}
+	for _, c := range capabilities {
+		c = ExpandCapability(c)
+		cs.caps[c] = struct{}{}
 	}
 }
 
-func (cs capabilitySet) Has(s string) bool {
+func (cs *capabilitySet) Has(s string) bool {
+	if cs == nil {
+		return false
+	}
 	s = ExpandCapability(s)
 	_, ok := cs.caps[s]
 	return ok
 }
 
-func (cs capabilitySet) All() []string {
+func (cs *capabilitySet) All() []string {
+	if cs == nil || len(cs.caps) == 0 {
+		return []string{}
+	}
 	out := make([]string, 0, len(cs.caps))
 	for c := range cs.caps {
 		out = append(out, c)
