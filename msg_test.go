@@ -241,6 +241,7 @@ func TestUnmarshalRPCReply(t *testing.T) {
 `),
 					},
 				},
+				Body: []byte("\n<rpc-error>\n<error-type>protocol</error-type>\n<error-tag>operation-failed</error-tag>\n<error-severity>error</error-severity>\n<error-message>syntax error, expecting &lt;candidate/&gt; or &lt;running/&gt;</error-message>\n<error-info>\n<bad-element>non-exist</bad-element>\n</error-info>\n</rpc-error>\n"),
 			},
 		},
 	}
@@ -249,6 +250,7 @@ func TestUnmarshalRPCReply(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got Reply
 			err := xml.Unmarshal(tc.reply, &got)
+			println(string(got.Body))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 		})
