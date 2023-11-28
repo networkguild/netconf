@@ -76,12 +76,11 @@ type Reply struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc-reply"`
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
-	Body      RawXML    `xml:"data,omitempty"`
+	Body      []byte    `xml:",innerxml"`
 }
 
-func (r Reply) DataString() string {
-	d, _ := xml.MarshalIndent(&r.Body, "", "  ")
-	return string(d)
+func (r Reply) String() string {
+	return string(r.Body)
 }
 
 func (r Reply) Decode(v interface{}) error {
