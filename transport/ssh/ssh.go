@@ -16,16 +16,13 @@ type framer = transport.Framer //nolint:golint,unused
 
 // Transport implements RFC6242 for implementing NETCONF protocol over SSH.
 type Transport struct {
+	stdin io.WriteCloser
 	c     *ssh.Client
 	sess  *ssh.Session
-	stdin io.WriteCloser
-
-	// set to true if the transport is managing the underlying ssh connection
-	// and should close it when the transport is closed.  This is is set to true
-	// when used with `Dial`.
-	managed bool
 
 	*framer
+
+	managed bool
 }
 
 // Dial will connect to a ssh server and issues a transport, it's used as a
