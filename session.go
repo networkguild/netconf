@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -20,37 +19,40 @@ var ErrClosed = errors.New("closed connection")
 type sessionConfig struct {
 	capabilities        []string
 	notificationHandler NotificationHandler
+	logger              Logger
 }
 
 type SessionOption interface {
 	apply(*sessionConfig)
 }
 
-type capabilityOpt []string
+type sessionOpt struct{ fn func(cfg *sessionConfig) }
 
-func (o capabilityOpt) apply(cfg *sessionConfig) {
-	for _, capability := range o {
-		cfg.capabilities = append(cfg.capabilities, capability)
-	}
-}
+func (o sessionOpt) apply(cl *sessionConfig) { o.fn(cl) }
 
 func WithCapability(capabilities ...string) SessionOption {
-	return capabilityOpt(capabilities)
-}
-
-type notificationHandlerOpt NotificationHandler
-
-func (o notificationHandlerOpt) apply(cfg *sessionConfig) {
-	cfg.notificationHandler = NotificationHandler(o)
+	return sessionOpt{func(cfg *sessionConfig) {
+		cfg.capabilities = append(cfg.capabilities, capabilities...)
+	}}
 }
 
 func WithNotificationHandler(nh NotificationHandler) SessionOption {
-	return notificationHandlerOpt(nh)
+	return sessionOpt{func(cfg *sessionConfig) {
+		cfg.notificationHandler = nh
+	}}
+}
+
+func WithLogger(logger Logger) SessionOption {
+	return sessionOpt{func(cfg *sessionConfig) {
+		cfg.logger = logger
+	}}
 }
 
 // Session represents a netconf session to a one given device.
 type Session struct {
-	tr        transport.Transport
+	tr     transport.Transport
+	logger Logger
+
 	sessionID uint64
 	seq       atomic.Uint64
 
@@ -69,24 +71,6 @@ type Session struct {
 // that they can be parsed and/or stored somewhere.
 type NotificationHandler func(msg Notification)
 
-func newSession(transport transport.Transport, opts ...SessionOption) *Session {
-	cfg := sessionConfig{
-		capabilities: DefaultCapabilities,
-	}
-
-	for _, opt := range opts {
-		opt.apply(&cfg)
-	}
-
-	s := &Session{
-		tr:                  transport,
-		clientCaps:          newCapabilitySet(cfg.capabilities...),
-		reqs:                make(map[uint64]*req),
-		notificationHandler: cfg.notificationHandler,
-	}
-	return s
-}
-
 // Open will create a new Session with th=e given transport and open it with the
 // necessary hello messages.
 func Open(transport transport.Transport, opts ...SessionOption) (*Session, error) {
@@ -100,6 +84,26 @@ func Open(transport transport.Transport, opts ...SessionOption) (*Session, error
 
 	go s.recv()
 	return s, nil
+}
+
+func newSession(transport transport.Transport, opts ...SessionOption) *Session {
+	cfg := sessionConfig{
+		capabilities: DefaultCapabilities,
+		logger:       &noOpLogger{},
+	}
+
+	for _, opt := range opts {
+		opt.apply(&cfg)
+	}
+
+	s := &Session{
+		tr:                  transport,
+		clientCaps:          newCapabilitySet(cfg.capabilities...),
+		reqs:                make(map[uint64]*req),
+		notificationHandler: cfg.notificationHandler,
+		logger:              cfg.logger,
+	}
+	return s
 }
 
 type hello struct {
@@ -202,7 +206,7 @@ func (s *Session) recvMsg() error {
 	switch root.Name {
 	case NotificationName:
 		if s.notificationHandler == nil {
-			log.Printf("Received notification but no handler is set")
+			s.logger.Warnf("Received notification but no handler is set")
 			return nil
 		}
 
@@ -242,7 +246,7 @@ func (s *Session) recv() {
 			break
 		}
 		if err != nil {
-			log.Printf("[netconf] failed to read incoming message, sessionId: %d, error: %v", s.sessionID, err)
+			s.logger.Errorf("failed to read incoming message, sessionId: %d, error: %v", s.sessionID, err)
 		}
 	}
 	s.mu.Lock()
@@ -254,7 +258,7 @@ func (s *Session) recv() {
 	}
 
 	if !s.closing {
-		log.Printf("[netconf] connection closed unexpectedly, sessionId: %d", s.sessionID)
+		s.logger.Errorf("connection closed unexpectedly, sessionId: %d", s.sessionID)
 	}
 }
 

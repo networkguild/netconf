@@ -54,11 +54,6 @@ func (s *testServer) popReq() ([]byte, error) {
 	return msg, nil
 }
 
-func (s *testServer) popReqString() (string, error) {
-	p, err := s.popReq()
-	return string(p), err
-}
-
 func (s *testServer) transport() *testTransport { return newTestTransport(s.handle) }
 
 type testTransport struct {
