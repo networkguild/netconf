@@ -20,6 +20,10 @@ type GetRequest struct {
 	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
 }
 
+type GetResponse struct {
+	Data []byte `xml:"data"`
+}
+
 type Filter string
 
 type DefaultsMode string

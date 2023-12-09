@@ -1,6 +1,7 @@
 package netconf
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"errors"
@@ -208,9 +209,20 @@ func (s *Session) recvMsg() error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func(r io.ReadCloser) {
+		if err := r.Close(); err != nil {
+			s.logger.Warnf("failed to close reader: %v", err)
+		}
+	}(r)
 
-	dec := xml.NewDecoder(r)
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, r)
+	if err != nil {
+		return err
+	}
+
+	reply := buf.Bytes()
+	dec := xml.NewDecoder(bytes.NewReader(reply))
 	root, err := startElement(dec)
 	if err != nil {
 		return err
@@ -223,26 +235,26 @@ func (s *Session) recvMsg() error {
 			return nil
 		}
 
-		var notif Notification
+		notif := Notification{rpc: reply}
 		if err := dec.DecodeElement(&notif, root); err != nil {
 			return fmt.Errorf("failed to decode notification message: %w", err)
 		}
 		s.notificationHandler(notif)
 	case RPCReplyName:
-		var reply Reply
+		rpcReply := Reply{rpc: reply}
 		if err := dec.DecodeElement(&reply, root); err != nil {
 			return fmt.Errorf("failed to decode rpc-reply message: %w", err)
 		}
-		ok, req := s.req(reply.MessageID)
+		ok, req := s.req(rpcReply.MessageID)
 		if !ok {
-			return fmt.Errorf("cannot find reply channel for message-id: %d", reply.MessageID)
+			return fmt.Errorf("cannot find reply channel for message-id: %d", rpcReply.MessageID)
 		}
 
 		select {
-		case req.reply <- reply:
+		case req.reply <- rpcReply:
 			return nil
 		case <-req.ctx.Done():
-			return fmt.Errorf("message %d context canceled: %s", reply.MessageID, req.ctx.Err().Error())
+			return fmt.Errorf("message %d context canceled: %s", rpcReply.MessageID, req.ctx.Err().Error())
 		}
 	default:
 		return fmt.Errorf("unknown message type: %q", root.Name.Local)
