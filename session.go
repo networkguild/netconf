@@ -112,7 +112,7 @@ type hello struct {
 	Capabilities []string `xml:"capabilities>capability"`
 }
 
-// handshake exchanges handshake messages and reports if there are any errors.
+// handshake exchanges rpc hello messages and reports if there are any errors.
 func (s *Session) handshake() error {
 	r, err := s.tr.MsgReader()
 	if err != nil {
@@ -252,7 +252,6 @@ func (s *Session) recv() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Close all outstanding requests
 	for _, req := range s.reqs {
 		close(req.reply)
 	}
@@ -300,7 +299,6 @@ func (s *Session) send(ctx context.Context, msg *request) (chan Reply, error) {
 		return nil, err
 	}
 
-	// cap of 1 makes sure we don't block on send
 	ch := make(chan Reply, 1)
 	s.reqs[msg.MessageID] = &req{
 		reply: ch,

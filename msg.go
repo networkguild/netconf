@@ -79,12 +79,19 @@ type Reply struct {
 	Body      []byte    `xml:",innerxml"`
 }
 
+// Decode decodes the Reply into the v
+func (r Reply) Decode(v interface{}) error {
+	return xml.Unmarshal(r.Body, v)
+}
+
+// String returns the string representation of the Reply inside <data> or some other element
 func (r Reply) String() string {
 	return string(r.Body)
 }
 
-func (r Reply) Decode(v interface{}) error {
-	return xml.Unmarshal(r.Body, v)
+// Raw returns full encoded Reply
+func (r Reply) Raw() ([]byte, error) {
+	return xml.Marshal(r)
 }
 
 func (r Reply) Err(severity ...ErrSeverity) error {
@@ -109,12 +116,19 @@ type Notification struct {
 	Body      []byte    `xml:",innerxml"`
 }
 
+// Decode decodes the Notification into the v
 func (r Notification) Decode(v interface{}) error {
 	return xml.Unmarshal(r.Body, v)
 }
 
+// String returns the string representation of the Notification inside <notification> element
 func (r Notification) String() string {
 	return string(r.Body)
+}
+
+// Raw returns full encoded Notification
+func (r Notification) Raw() ([]byte, error) {
+	return xml.Marshal(r)
 }
 
 type ErrSeverity string
