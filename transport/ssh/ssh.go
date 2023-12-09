@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// alias it to a private type so we can make it private when embedding
-type framer = transport.Framer //nolint:golint,unused
+// alias it to a private type, so we can make it private when embedding
+type framer = transport.Framer
 
 // Transport implements RFC6242 for implementing NETCONF protocol over SSH.
 type Transport struct {
@@ -22,10 +22,10 @@ type Transport struct {
 
 	*framer
 
-	managed bool
+	managedByTransport bool
 }
 
-// Dial will connect to a ssh server and issues a transport, it's used as a
+// Dial will connect to ssh server and issues a transport, it's used as a
 // convenience function as essentially is the same as
 //
 //		c, err := ssh.Dial(network, addr, config)
@@ -42,11 +42,11 @@ func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig) (
 
 	// Setup a go routine to monitor the context and close the connection.  This
 	// is needed as the underlying ssh library doesn't support contexts so this
-	// approximates a context based cancelation/timeout for the ssh handshake.
+	// approximates a context based cancellation/timeout for the ssh handshake.
 	//
 	// An alternative would be timeout based with conn.SetDeadline(), but then we
 	// would manage two timeouts.  One for tcp connection and one for ssh
-	// handshake and wouldn't support any other event based cancelation.
+	// handshake and wouldn't support any other event based cancellation.
 	done := make(chan struct{})
 	go func() {
 		select {
@@ -67,7 +67,7 @@ func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig) (
 		}
 		return nil, err
 	}
-	close(done) // make sure we cleanup the context monitor routine
+	close(done)
 
 	client := ssh.NewClient(sshConn, chans, reqs)
 	return newTransport(client, true)
@@ -103,18 +103,22 @@ func newTransport(client *ssh.Client, managed bool) (*Transport, error) {
 	}
 
 	return &Transport{
-		c:       client,
-		managed: managed,
-		sess:    sess,
-		stdin:   w,
+		c:     client,
+		sess:  sess,
+		stdin: w,
 
 		framer: transport.NewFramer(r, w),
+
+		managedByTransport: managed,
 	}, nil
 }
 
-// Close will close the underlying transport.  If the connection was created
-// with Dial then then underlying ssh.Client is closed as well.  If not only
-// the sessions is closed.
+// Close will close the underlying transport.
+// Underlying ssh.Client is closed if managed by transport (created by Dial)
 func (t *Transport) Close() error {
-	return errors.Join(t.stdin.Close(), t.sess.Close(), t.c.Close())
+	if t.managedByTransport {
+		return errors.Join(t.stdin.Close(), t.sess.Close(), t.c.Close())
+	} else {
+		return errors.Join(t.stdin.Close(), t.sess.Close())
+	}
 }
