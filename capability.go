@@ -13,6 +13,7 @@ const (
 	RollbackOnErrorCapability = "urn:ietf:params:netconf:capability:rollback-on-error:1.0"
 	URLCapability             = "urn:ietf:params:netconf:capability:url:1.0"
 	ConfirmedCommitCapability = "urn:ietf:params:netconf:capability:confirmed-commit:1.1"
+	ValidateOldCapability     = "urn:ietf:params:netconf:capability:validate:1.0"
 	ValidateCapability        = "urn:ietf:params:netconf:capability:validate:1.1"
 	NotificationCapability    = "urn:ietf:params:netconf:capability:notification:1.0"
 )

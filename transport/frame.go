@@ -243,25 +243,15 @@ func (r *chunkReader) ReadByte() (byte, error) {
 // the end-of-frame markers if we haven't already done so.
 func (r *chunkReader) Close() error {
 	defer func() { r.r = nil }()
-	for {
-		if r.chunkLeft <= 0 {
-			err := r.readHeader()
-			switch err {
-			case nil:
-				break
-			case io.EOF:
-				return nil
-			default:
-				return err
-			}
-		}
 
-		discarded, err := r.r.Discard(r.chunkLeft)
-		if err != nil {
-			return err
+	var err error
+	for err == nil {
+		_, err = r.ReadByte()
+		if err == io.EOF {
+			return nil
 		}
-		r.chunkLeft -= discarded
 	}
+	return nil
 }
 
 type chunkWriter struct {

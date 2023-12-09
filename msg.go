@@ -38,22 +38,12 @@ func (x *RawXML) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 
 // MarshalXML implements xml.Marshaller.
 func (x *RawXML) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	if start.Name.Local == "data" {
-		inner := struct {
-			XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 data"`
-			Data    []byte   `xml:",innerxml"`
-		}{
-			Data: []byte(*x),
-		}
-		return e.Encode(&inner)
-	} else {
-		inner := struct {
-			Data []byte `xml:",innerxml"`
-		}{
-			Data: []byte(*x),
-		}
-		return e.EncodeElement(&inner, start)
+	inner := struct {
+		Data []byte `xml:",innerxml"`
+	}{
+		Data: []byte(*x),
 	}
+	return e.EncodeElement(&inner, start)
 }
 
 type request struct {
@@ -76,15 +66,22 @@ type Reply struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc-reply"`
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
-	Body      []byte    `xml:",innerxml"`
+	rpc       []byte    `xml:"-"`
 }
 
-func (r Reply) String() string {
-	return string(r.Body)
-}
-
+// Decode decodes the Reply into the v
 func (r Reply) Decode(v interface{}) error {
-	return xml.Unmarshal(r.Body, v)
+	return xml.Unmarshal(r.rpc, v)
+}
+
+// String returns the string representation of the Reply inside <data> or some other element
+func (r Reply) String() string {
+	return string(r.rpc)
+}
+
+// Raw returns full rpc Reply
+func (r Reply) Raw() []byte {
+	return r.rpc
 }
 
 func (r Reply) Err(severity ...ErrSeverity) error {
@@ -106,15 +103,22 @@ func (r Reply) Err(severity ...ErrSeverity) error {
 type Notification struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:notification:1.0 notification"`
 	EventTime time.Time `xml:"eventTime"`
-	Body      []byte    `xml:",innerxml"`
+	rpc       []byte    `xml:"-"`
 }
 
+// Decode decodes the Notification into the v
 func (r Notification) Decode(v interface{}) error {
-	return xml.Unmarshal(r.Body, v)
+	return xml.Unmarshal(r.rpc, v)
 }
 
+// String returns the string representation of the Notification inside <notification> element
 func (r Notification) String() string {
-	return string(r.Body)
+	return string(r.rpc)
+}
+
+// Raw returns full rpc Notification
+func (r Notification) Raw() []byte {
+	return r.rpc
 }
 
 type ErrSeverity string
@@ -189,10 +193,9 @@ func (errs RPCErrors) Filter(severity ...ErrSeverity) RPCErrors {
 
 	filteredErrs := make(RPCErrors, 0, len(errs))
 	for _, err := range errs {
-		if !slices.Contains(severity, err.Severity) {
-			continue
+		if slices.Contains(severity, err.Severity) {
+			filteredErrs = append(filteredErrs, err)
 		}
-		filteredErrs = append(filteredErrs, err)
 	}
 	return filteredErrs
 }
