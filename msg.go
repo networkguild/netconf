@@ -203,10 +203,9 @@ func (errs RPCErrors) Filter(severity ...ErrSeverity) RPCErrors {
 
 	filteredErrs := make(RPCErrors, 0, len(errs))
 	for _, err := range errs {
-		if !slices.Contains(severity, err.Severity) {
-			continue
+		if slices.Contains(severity, err.Severity) {
+			filteredErrs = append(filteredErrs, err)
 		}
-		filteredErrs = append(filteredErrs, err)
 	}
 	return filteredErrs
 }

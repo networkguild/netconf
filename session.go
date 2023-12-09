@@ -20,6 +20,8 @@ type sessionConfig struct {
 	capabilities        []string
 	notificationHandler NotificationHandler
 	logger              Logger
+
+	errSeverity []ErrSeverity
 }
 
 type SessionOption interface {
@@ -48,6 +50,13 @@ func WithLogger(logger Logger) SessionOption {
 	}}
 }
 
+// WithErrorSeverity sets the severity level for errors returned by the server. Defaults are SevWarning, SevError
+func WithErrorSeverity(severity ...ErrSeverity) SessionOption {
+	return sessionOpt{func(cfg *sessionConfig) {
+		cfg.errSeverity = severity
+	}}
+}
+
 // Session represents a netconf session to a one given device.
 type Session struct {
 	tr     transport.Transport
@@ -56,9 +65,11 @@ type Session struct {
 	sessionID uint64
 	seq       atomic.Uint64
 
-	clientCaps          capabilitySet
-	serverCaps          capabilitySet
+	clientCaps capabilitySet
+	serverCaps capabilitySet
+
 	notificationHandler NotificationHandler
+	errSeverity         []ErrSeverity
 
 	mu      sync.Mutex
 	reqs    map[uint64]*req
@@ -90,6 +101,7 @@ func newSession(transport transport.Transport, opts ...SessionOption) *Session {
 	cfg := sessionConfig{
 		capabilities: DefaultCapabilities,
 		logger:       &noOpLogger{},
+		errSeverity:  []ErrSeverity{SevWarning, SevError},
 	}
 
 	for _, opt := range opts {
@@ -101,6 +113,7 @@ func newSession(transport transport.Transport, opts ...SessionOption) *Session {
 		clientCaps:          newCapabilitySet(cfg.capabilities...),
 		reqs:                make(map[uint64]*req),
 		notificationHandler: cfg.notificationHandler,
+		errSeverity:         cfg.errSeverity,
 		logger:              cfg.logger,
 	}
 	return s
@@ -328,7 +341,7 @@ func (s *Session) Do(ctx context.Context, req any) (*Reply, error) {
 		if !ok {
 			return nil, ErrClosed
 		}
-		if reply.Err() != nil {
+		if reply.Err(s.errSeverity...) != nil {
 			return nil, reply.Err()
 		}
 		return &reply, nil
