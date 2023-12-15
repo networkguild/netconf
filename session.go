@@ -184,21 +184,6 @@ func (s *Session) ServerCapabilities() []string {
 	return s.serverCaps.All()
 }
 
-// startElement will walk through a xml.Decode until it finds a start element
-// and returns it.
-func startElement(d *xml.Decoder) (*xml.StartElement, error) {
-	for {
-		tok, err := d.Token()
-		if err != nil {
-			return nil, err
-		}
-
-		if start, ok := tok.(xml.StartElement); ok {
-			return &start, nil
-		}
-	}
-}
-
 type req struct {
 	reply chan Reply
 	ctx   context.Context
@@ -222,27 +207,21 @@ func (s *Session) recvMsg() error {
 	}
 
 	reply := buf.Bytes()
-	dec := xml.NewDecoder(bytes.NewReader(reply))
-	root, err := startElement(dec)
-	if err != nil {
-		return err
-	}
-
-	switch root.Name {
-	case NotificationName:
+	switch {
+	case bytes.Contains(reply, []byte("notification")):
 		if s.notificationHandler == nil {
 			s.logger.Warnf("Received notification but no handler is set")
 			return nil
 		}
 
 		notif := Notification{rpc: reply}
-		if err := dec.DecodeElement(&notif, root); err != nil {
+		if err := xml.Unmarshal(reply, &notif); err != nil {
 			return fmt.Errorf("failed to decode notification message: %w", err)
 		}
 		s.notificationHandler(notif)
-	case RPCReplyName:
+	case bytes.Contains(reply, []byte("rpc-reply")):
 		rpcReply := Reply{rpc: reply}
-		if err := dec.DecodeElement(&reply, root); err != nil {
+		if err := xml.Unmarshal(reply, &rpcReply); err != nil {
 			return fmt.Errorf("failed to decode rpc-reply message: %w", err)
 		}
 		ok, req := s.req(rpcReply.MessageID)
@@ -257,7 +236,7 @@ func (s *Session) recvMsg() error {
 			return fmt.Errorf("message %d context canceled: %s", rpcReply.MessageID, req.ctx.Err().Error())
 		}
 	default:
-		return fmt.Errorf("unknown message type: %q", root.Name.Local)
+		return fmt.Errorf("unknown rpc reply, notification and rpc-reply supported")
 	}
 	return nil
 }
