@@ -208,18 +208,7 @@ func (s *Session) recvMsg() error {
 
 	reply := buf.Bytes()
 	switch {
-	case bytes.Contains(reply, []byte("notification")):
-		if s.notificationHandler == nil {
-			s.logger.Warnf("Received notification but no handler is set")
-			return nil
-		}
-
-		notif := Notification{rpc: reply}
-		if err := xml.Unmarshal(reply, &notif); err != nil {
-			return fmt.Errorf("failed to decode notification message: %w", err)
-		}
-		s.notificationHandler(notif)
-	case bytes.Contains(reply, []byte("rpc-reply")):
+	case bytes.Contains(reply, []byte("<rpc-reply")):
 		rpcReply := Reply{rpc: reply}
 		if err := xml.Unmarshal(reply, &rpcReply); err != nil {
 			return fmt.Errorf("failed to decode rpc-reply message: %w", err)
@@ -235,6 +224,17 @@ func (s *Session) recvMsg() error {
 		case <-req.ctx.Done():
 			return fmt.Errorf("message %d context canceled: %s", rpcReply.MessageID, req.ctx.Err().Error())
 		}
+	case bytes.Contains(reply, []byte("<notification")):
+		if s.notificationHandler == nil {
+			s.logger.Warnf("Received notification but no handler is set")
+			return nil
+		}
+
+		notif := Notification{rpc: reply}
+		if err := xml.Unmarshal(reply, &notif); err != nil {
+			return fmt.Errorf("failed to decode notification message: %w", err)
+		}
+		s.notificationHandler(notif)
 	default:
 		return fmt.Errorf("unknown rpc reply, notification and rpc-reply supported")
 	}
