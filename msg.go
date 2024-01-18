@@ -9,18 +9,6 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var (
-	RPCReplyName = xml.Name{
-		Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
-		Local: "rpc-reply",
-	}
-
-	NotificationName = xml.Name{
-		Space: "urn:ietf:params:xml:ns:netconf:notification:1.0",
-		Local: "notification",
-	}
-)
-
 type RawXML []byte
 
 func (x *RawXML) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
