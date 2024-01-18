@@ -243,14 +243,6 @@ func (r *chunkReader) ReadByte() (byte, error) {
 // the end-of-frame markers if we haven't already done so.
 func (r *chunkReader) Close() error {
 	defer func() { r.r = nil }()
-
-	var err error
-	for err == nil {
-		_, err = r.ReadByte()
-		if err == io.EOF {
-			return nil
-		}
-	}
 	return nil
 }
 
