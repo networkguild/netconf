@@ -30,7 +30,7 @@ jobs:
           go mod vendor
 
       - name: Staticcheck
-        uses: dominikh/staticcheck-action@v1.3.0
+        uses: dominikh/staticcheck-action@v1.3.1
         with:
           install-go: false
           version: "2023.1.6"
