@@ -15,6 +15,7 @@ func (f Filter) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 
 type GetRequest struct {
 	XMLName      xml.Name
+	Attr         []xml.Attr   `xml:",attr,omitempty"`
 	Source       Datastore    `xml:"source,omitempty"`
 	Filter       Filter       `xml:"filter,omitempty"`
 	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
@@ -37,9 +38,15 @@ const (
 
 type defaultsMode DefaultsMode
 type filter Filter
+type attr xml.Attr
 
 func (o filter) apply(req *GetRequest)       { req.Filter = Filter(o) }
 func (o defaultsMode) apply(req *GetRequest) { req.WithDefaults = DefaultsMode(o) }
+func (o attr) apply(req *GetRequest) {
+	if o.Value != "" && o.Name.Local != "" {
+		req.Attr = append(req.Attr, xml.Attr(o))
+	}
+}
 
 // WithSubtreeFilter sets the subtree `filter` to the `<get>` or `<get-config>` operation.
 func WithSubtreeFilter(subtree string) GetOption { return filter(subtree) }
@@ -48,6 +55,12 @@ func WithSubtreeFilter(subtree string) GetOption { return filter(subtree) }
 // This defines the behavior if default configs should be returned.
 // See [DefaultsMode] for the available options.
 func WithDefaultMode(op DefaultsMode) GetOption { return defaultsMode(op) }
+
+// WithAttribute sets `attributes` in the `<get>` operation.
+// For example juniper allows <get [format="(json | set | text | xml)"]> attributes in get request.
+func WithAttribute(key, value string) GetOption {
+	return attr(xml.Attr{Name: xml.Name{Local: key}, Value: value})
+}
 
 type GetOption interface {
 	apply(*GetRequest)

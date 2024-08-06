@@ -93,6 +93,17 @@ func TestGet(t *testing.T) {
 				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\S*<filter type="subtree">\S*<devm xmlns="urn:huawei:yang:huawei-devm"/>\S*</filter>\S*<with-defaults xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults">report-all</with-defaults>\S*</get>`),
 			},
 		},
+		{
+			name: "get configuration with attribute",
+			options: []GetOption{
+				WithDefaultMode("report-all"),
+				WithSubtreeFilter(`<configuration/>`),
+				WithAttribute("format", "set"),
+			},
+			matches: []*regexp.Regexp{
+				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" format="set">\S*<filter type="subtree">\S*<configuration/>\S*</filter>\S*<with-defaults xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults">report-all</with-defaults>\S*</get>`),
+			},
+		},
 	}
 
 	for _, tc := range tt {
