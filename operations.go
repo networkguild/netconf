@@ -250,6 +250,9 @@ type DiscardChangesReq struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 discard-changes"`
 }
 
+// DiscardChanges issues the `<discard-changes>` operation as defined in [RFC6241 8.3.4.2]
+//
+// [RFC6241 8.3.4.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.2
 func (s *Session) DiscardChanges(ctx context.Context) error {
 	return s.Call(ctx, new(DiscardChangesReq), nil)
 }
@@ -265,10 +268,10 @@ type CopyConfigReq struct {
 //
 // A `<config>` element defining a full config can be used as the source.
 //
-// If a device supports the `:url` capability than a [URL] object can be used
+// If a device supports the [URLCapability] capability than a [URL] object can be used
 // for the source or target datastore.
 //
-// [RFC6241 7.3] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.3
+// [RFC6241 7.3]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.3
 func (s *Session) CopyConfig(ctx context.Context, source, target any) error {
 	req := CopyConfigReq{
 		Source: source,
@@ -286,7 +289,7 @@ type DeleteConfigReq struct {
 // DeleteConfig issues the `<delete-config>` operation as defined in [RFC6241 7.4]
 // for deleting a configuration datastore.
 //
-// [RFC6241 7.4] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.4
+// [RFC6241 7.4]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.4
 func (s *Session) DeleteConfig(ctx context.Context, target Datastore) error {
 	req := DeleteConfigReq{
 		Target: target,
@@ -303,7 +306,7 @@ type LockReq struct {
 // Lock issues the `<lock>` operation as defined in [RFC6241 7.5]
 // for locking the entire configuration datastore.
 //
-// [RFC6241 7.5] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.5
+// [RFC6241 7.5]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.5
 func (s *Session) Lock(ctx context.Context, target Datastore) error {
 	req := LockReq{
 		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "lock"},
@@ -316,7 +319,7 @@ func (s *Session) Lock(ctx context.Context, target Datastore) error {
 // Unlock issues the `<unlock>` operation as defined in [RFC6241 7.6]
 // for releasing a configuration lock, previously obtained with the [Session.Lock] operation.
 //
-// [RFC6241 7.6] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.6
+// [RFC6241 7.6]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.6
 func (s *Session) Unlock(ctx context.Context, target Datastore) error {
 	req := LockReq{
 		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "unlock"},
@@ -334,7 +337,7 @@ type KillSessionReq struct {
 // KillSession issues the `<kill-session>` operation as defined in [RFC6241 7.9]
 // for force terminating the NETCONF session.
 //
-// [RFC6241 7.9] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.9
+// [RFC6241 7.9]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.9
 func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*Reply, error) {
 	req := KillSessionReq{
 		SessionID: sessionID,
@@ -352,7 +355,7 @@ type ValidateReq struct {
 // for validating the contents of the specified configuration. This requires
 // the device to support the [ValidateCapability] capability
 //
-// [RFC6241 8.6.4.1] https://www.rfc-editor.org/rfc/rfc6241.html#section-8.6.4.1
+// [RFC6241 8.6.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.6.4.1
 func (s *Session) Validate(ctx context.Context, source any) error {
 	if !s.serverCaps.Has(ValidateCapability) {
 		return fmt.Errorf("server does not support validate")
@@ -395,16 +398,14 @@ func (o persist) apply(req *CommitReq) {
 }
 func (o PersistID) apply(req *CommitReq) { req.PersistID = string(o) }
 
-// RollbackOnError will restore the configuration back to before the
-// `<edit-config>` operation took place.  This requires the device to
-// support the `:rollback-on-error` capability.
-
 // WithConfirmed will mark the commits as requiring confirmation or will roll back
 // after the default timeout on the device (default should be 600s).  The commit
 // can be confirmed with another `<commit>` call without the confirmed option,
 // extended by calling with `Commit` With `WithConfirmed` or
-// `WithConfirmedTimeout` or canceling the commit with a `CommitCancel` call.
-// This requires the device to support the `:confirmed-commit:1.1` capability.
+// `WithConfirmedTimeout` or canceling the commit with a `Session.CancelCommit` call.
+// This requires the device to support the [ConfirmedCommitCapability] capability.
+//
+// [RFC6241 8.4]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.4
 func WithConfirmed() CommitOption { return confirmed(true) }
 
 // WithConfirmedTimeout is like `WithConfirmed` but using the given timeout
@@ -422,8 +423,10 @@ func WithPersist(id string) CommitOption { return persist(id) }
 // session.
 func WithPersistID(id string) PersistID { return PersistID(id) }
 
-// Commit will commit a candidate config to the running config. This requires
-// the device to support the `:candidate` capability.
+// Commit will commit a candidate config to the running config as defined in [RFC6241 8.3.4.1].
+// This requires the device to support the [CandidateCapability] capability.
+//
+// [RFC6241 8.3.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.1
 func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
 	var req CommitReq
 	for _, opt := range opts {
@@ -454,6 +457,9 @@ type CancelCommitReq struct {
 	PersistID string   `xml:"persist-id,omitempty"`
 }
 
+// CancelCommit issues the `<cancel-commit/>` operation as defined in [RFC6241 8.4.4.1].
+//
+// [RFC6241 8.4.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.4.4.1
 func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) error {
 	var req CancelCommitReq
 	for _, opt := range opts {
