@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetConfig(t *testing.T) {
@@ -55,14 +55,14 @@ func TestGetConfig(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			reply, err := sess.GetConfig(context.Background(), tc.source, tc.options...)
-			assert.NoError(t, err)
-			assert.NotNil(t, reply)
+			require.NoError(t, err)
+			require.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -115,14 +115,14 @@ func TestGet(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><data>daa</data></rpc-reply>`)
 
 			reply, err := sess.Get(context.Background(), tc.options...)
-			assert.NoError(t, err)
-			assert.NotNil(t, reply)
+			require.NoError(t, err)
+			require.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}

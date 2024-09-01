@@ -377,7 +377,7 @@ func (s *Session) Close(ctx context.Context) error {
 		XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 close-session"`
 	}
 
-	_, callErr := s.Do(ctx, &closeSession{})
+	_, callErr := s.Do(ctx, new(closeSession))
 
 	if err := s.tr.Close(); err != nil &&
 		!errors.Is(err, net.ErrClosed) &&

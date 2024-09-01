@@ -246,6 +246,14 @@ func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, 
 	return s.Call(ctx, &req, nil)
 }
 
+type DiscardChangesReq struct {
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 discard-changes"`
+}
+
+func (s *Session) DiscardChanges(ctx context.Context) error {
+	return s.Call(ctx, new(DiscardChangesReq), nil)
+}
+
 type CopyConfigReq struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 copy-config"`
 	Target  any      `xml:"target"`
