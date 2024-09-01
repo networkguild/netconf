@@ -7,9 +7,9 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -122,32 +122,32 @@ func TestTransport(t *testing.T) {
 	config := &ssh.ClientConfig{
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	tr, err := Dial(context.Background(), "tcp", server.addr.String(), config)
+	tr, err := Dial(context.Background(), "tcp", server.addr.String(), config, WithDebugCapture(os.Stdout, os.Stdout))
 	require.NoError(t, err)
 
 	// test read
 	r, err := tr.MsgReader()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = io.ReadAll(r)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// test write
 	w, err := tr.MsgWriter()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	out := "a man a plan a canal panama"
 	_, _ = io.WriteString(w, out)
 
 	err = w.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = tr.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// wait for the server to close
 	<-srvDone
 
 	want := out + "\n]]>]]>"
-	assert.Equal(t, want, srvIn.String())
+	require.Equal(t, want, srvIn.String())
 }

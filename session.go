@@ -200,7 +200,7 @@ func (s *Session) recvMsg() error {
 		}
 	}(r)
 
-	buf := new(bytes.Buffer)
+	buf := bytes.NewBuffer(make([]byte, 0, 8096))
 	_, err = io.Copy(buf, r)
 	if err != nil {
 		return err

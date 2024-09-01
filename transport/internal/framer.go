@@ -1,4 +1,4 @@
-package transport
+package internal
 
 import (
 	"bufio"
@@ -6,14 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"time"
 )
 
-// ErrMalformedChunk represents a message that invalid as defined in the chunk
-// framing in RFC6242
-var ErrMalformedChunk = errors.New("netconf: invalid chunk")
+var (
+	// ErrExistingWriter is returned from MsgWriter when there is already a
+	// message io.WriterCloser that hasn't been properly closed yet.
+	ErrExistingWriter = errors.New("netconf: existing message writer still open")
+
+	// ErrInvalidIO is returned when a write or read operation is called on
+	// message io.Reader or a message io.Writer when they are no longer valid.
+	// (i.e a new reader or writer has been obtained)
+	ErrInvalidIO = errors.New("netconf: read/write on invalid io")
+
+	// ErrMalformedChunk represents a message that invalid as defined in the chunk
+	// framing in RFC6242
+	ErrMalformedChunk = errors.New("netconf: invalid chunk")
+)
 
 type frameReader interface {
 	io.ReadCloser
@@ -44,43 +52,18 @@ type Framer struct {
 
 // NewFramer return a new Framer to be used against the given io.Reader and io.Writer.
 func NewFramer(r io.Reader, w io.Writer) *Framer {
-	f := &Framer{
+	return &Framer{
 		r:  r,
 		w:  w,
 		br: bufio.NewReader(r),
 		bw: bufio.NewWriter(w),
 	}
-
-	capDir := os.Getenv("NETCONF_DEBUG_CAPTURE_DIR")
-	if capDir != "" {
-		if err := os.MkdirAll(capDir, 0o755); err != nil {
-			panic(fmt.Sprintf("NETCONF_DEBUG_CAPTURE_DIR: failed to create capture output dir: %v", err))
-		}
-
-		ts := time.Now().Format(time.RFC3339)
-
-		inFilename := filepath.Join(capDir, ts+".in")
-		inf, err := os.Create(inFilename)
-		if err != nil {
-			panic(fmt.Sprintf("failed to create capture file %q: %v", inFilename, err))
-		}
-
-		outFilename := filepath.Join(capDir, ts+".out")
-		outf, err := os.Create(outFilename)
-		if err != nil {
-			panic(fmt.Sprintf("failed to create capture file %q: %v", inFilename, err))
-		}
-
-		f.DebugCapture(inf, outf)
-	}
-
-	return f
 }
 
 // DebugCapture will copy all *framed* input/output to the given
 // `io.Writers` for sent or recv data.  Either sent of recv can be nil to not
-// capture any data.  Useful for displaying to a screen or capturing to a file
-// for debugging.
+// capture any data.
+// Useful for displaying to a screen or capturing to a file for debugging.
 //
 // This needs to be called before `MsgReader` or `MsgWriter`.
 func (f *Framer) DebugCapture(in io.Writer, out io.Writer) {

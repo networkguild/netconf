@@ -7,12 +7,12 @@ import (
 	"io"
 	"net"
 
-	"github.com/networkguild/netconf/transport"
+	"github.com/networkguild/netconf/transport/internal"
 	"golang.org/x/crypto/ssh"
 )
 
 // alias it to a private type, so we can make it private when embedding
-type framer = transport.Framer
+type framer = internal.Framer
 
 // Transport implements RFC6242 for implementing NETCONF protocol over SSH.
 type Transport struct {
@@ -22,7 +22,15 @@ type Transport struct {
 
 	*framer
 
-	managedByTransport bool
+	managed bool
+}
+
+type Opt func(*Transport)
+
+func WithDebugCapture(in io.Writer, out io.Writer) Opt {
+	return func(t *Transport) {
+		t.framer.DebugCapture(in, out)
+	}
 }
 
 // Dial will connect to ssh server and issues a transport, it's used as a
@@ -33,7 +41,7 @@ type Transport struct {
 //	 	t, err := NewTransport(c)
 //
 // When the transport is closed the underlying connection is also closed.
-func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig) (*Transport, error) {
+func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig, opts ...Opt) (*Transport, error) {
 	d := net.Dialer{Timeout: config.Timeout}
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -70,18 +78,18 @@ func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig) (
 	close(done)
 
 	client := ssh.NewClient(sshConn, chans, reqs)
-	return newTransport(client, true)
+	return newTransport(client, true, opts...)
 }
 
 // NewTransport will create a new ssh transport as defined in RFC6242 for use
 // with netconf.  Unlike Dial, the underlying client will not be automatically
 // closed when the transport is closed (however any sessions and subsystems
 // are still closed).
-func NewTransport(client *ssh.Client) (*Transport, error) {
-	return newTransport(client, false)
+func NewTransport(client *ssh.Client, opts ...Opt) (*Transport, error) {
+	return newTransport(client, false, opts...)
 }
 
-func newTransport(client *ssh.Client, managed bool) (*Transport, error) {
+func newTransport(client *ssh.Client, managed bool, opts ...Opt) (*Transport, error) {
 	sess, err := client.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ssh session: %w", err)
@@ -102,21 +110,27 @@ func newTransport(client *ssh.Client, managed bool) (*Transport, error) {
 		return nil, fmt.Errorf("failed to start netconf ssh subsytem: %w", err)
 	}
 
-	return &Transport{
+	tr := &Transport{
 		c:     client,
 		sess:  sess,
 		stdin: w,
 
-		framer: transport.NewFramer(r, w),
+		framer: internal.NewFramer(r, w),
 
-		managedByTransport: managed,
-	}, nil
+		managed: managed,
+	}
+
+	for _, opt := range opts {
+		opt(tr)
+	}
+
+	return tr, nil
 }
 
 // Close will close the underlying transport.
 // Underlying ssh.Client is closed if managed by transport (created by Dial)
 func (t *Transport) Close() error {
-	if t.managedByTransport {
+	if t.managed {
 		return errors.Join(t.stdin.Close(), t.sess.Close(), t.c.Close())
 	} else {
 		return errors.Join(t.stdin.Close(), t.sess.Close())
