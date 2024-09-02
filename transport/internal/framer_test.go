@@ -1,12 +1,14 @@
-package transport
+package internal
 
 import (
 	"bufio"
 	"bytes"
+	"encoding/xml"
 	"io"
+	"slices"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -97,9 +99,9 @@ func TestChunkReaderReadByte(t *testing.T) {
 			buf = buf[:n]
 
 			if err != io.EOF {
-				assert.Equal(t, err, tc.err)
+				require.Equal(t, err, tc.err)
 			}
-			assert.Equal(t, tc.want, buf)
+			require.Equal(t, tc.want, buf)
 		})
 	}
 }
@@ -112,8 +114,8 @@ func TestChunkReaderRead(t *testing.T) {
 			}
 
 			got, err := io.ReadAll(r)
-			assert.Equal(t, tc.err, err)
-			assert.Equal(t, tc.want, got)
+			require.Equal(t, tc.err, err)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -123,18 +125,59 @@ func TestChunkWriter(t *testing.T) {
 	w := &chunkWriter{bufio.NewWriter(&buf)}
 
 	n, err := w.Write([]byte("foo"))
-	assert.NoError(t, err)
-	assert.Equal(t, 3, n)
+	require.NoError(t, err)
+	require.Equal(t, 3, n)
 
 	n, err = w.Write([]byte("quux"))
-	assert.NoError(t, err)
-	assert.Equal(t, 4, n)
+	require.NoError(t, err)
+	require.Equal(t, 4, n)
 
 	err = w.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	want := []byte("\n#3\nfoo\n#4\nquux\n##\n")
-	assert.Equal(t, want, buf.Bytes())
+	require.Equal(t, want, buf.Bytes())
+}
+
+func TestChunkWriterWithXml(t *testing.T) {
+	type req struct {
+		XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc"`
+		MessageID uint64   `xml:"message-id,attr"`
+		Operation any      `xml:",innerxml"`
+	}
+	tests := []struct {
+		name string
+		req  req
+		want string
+	}{
+		{
+			name: "test close-session",
+			req: req{
+				MessageID: 69,
+				Operation: "<close-session/>",
+			},
+			want: "\n#91\n<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"69\"><close-session/></rpc>\n##\n",
+		},
+		{
+			name: "test edit-config",
+			req: req{
+				MessageID: 101,
+				Operation: "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><filter type=\"subtree\"><configure xmlns=\"urn:nokia.com:sros:ns:yang:sr:conf\"><system><name/></system></configure></filter></get>",
+			},
+			want: "\n#257\n<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"101\"><get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><filter type=\"subtree\"><configure xmlns=\"urn:nokia.com:sros:ns:yang:sr:conf\"><system><name/></system></configure></filter></get></rpc>\n##\n",
+		},
+	}
+
+	for test := range slices.Values(tests) {
+		t.Run(test.name, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			w := &chunkWriter{bufio.NewWriter(&buf)}
+
+			require.NoError(t, xml.NewEncoder(w).Encode(test.req))
+			require.NoError(t, w.Close())
+			require.Equal(t, test.want, buf.String())
+		})
+	}
 }
 
 func BenchmarkChunkedReadByte(b *testing.B) {
@@ -260,10 +303,10 @@ func TestEOMReadByte(t *testing.T) {
 			buf = buf[:n]
 
 			if err != io.EOF {
-				assert.Equal(t, err, tc.err)
+				require.Equal(t, err, tc.err)
 			}
 
-			assert.Equal(t, tc.want, buf)
+			require.Equal(t, tc.want, buf)
 		})
 	}
 }
@@ -275,8 +318,8 @@ func TestEOMRead(t *testing.T) {
 				r: bufio.NewReader(bytes.NewReader(tc.input)),
 			}
 			got, err := io.ReadAll(r)
-			assert.Equal(t, err, tc.err)
-			assert.Equal(t, tc.want, got)
+			require.Equal(t, err, tc.err)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -286,14 +329,14 @@ func TestEOMWriter(t *testing.T) {
 	w := &eomWriter{w: bufio.NewWriter(&buf)}
 
 	n, err := w.Write([]byte("foo"))
-	assert.NoError(t, err)
-	assert.Equal(t, 3, n)
+	require.NoError(t, err)
+	require.Equal(t, 3, n)
 
 	err = w.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	want := []byte("foo\n]]>]]>")
-	assert.Equal(t, want, buf.Bytes())
+	require.Equal(t, want, buf.Bytes())
 }
 
 // force benchmarks to not use any fancy ReadFroms's or other shortcuts

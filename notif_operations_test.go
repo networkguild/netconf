@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateSubscription(t *testing.T) {
@@ -67,13 +67,13 @@ func TestCreateSubscription(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.CreateSubscription(context.Background(), tc.options...)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}

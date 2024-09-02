@@ -54,11 +54,11 @@ type Reply struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc-reply"`
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
-	rpc       []byte    `xml:"-"`
+	rpc       []byte
 }
 
 // Decode decodes the Reply into the v
-func (r Reply) Decode(v interface{}) error {
+func (r Reply) Decode(v any) error {
 	return xml.Unmarshal(r.rpc, v)
 }
 
@@ -91,11 +91,11 @@ func (r Reply) Err(severity ...ErrSeverity) error {
 type Notification struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:notification:1.0 notification"`
 	EventTime time.Time `xml:"eventTime"`
-	rpc       []byte    `xml:"-"`
+	rpc       []byte
 }
 
 // Decode decodes the Notification into the v
-func (r Notification) Decode(v interface{}) error {
+func (r Notification) Decode(v any) error {
 	return xml.Unmarshal(r.rpc, v)
 }
 

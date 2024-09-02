@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnmarshalOk(t *testing.T) {
@@ -29,8 +29,8 @@ func TestUnmarshalOk(t *testing.T) {
 			}
 
 			err := xml.Unmarshal([]byte(tc.input), &v)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.want, bool(v.Ok))
+			require.NoError(t, err)
+			require.Equal(t, tc.want, bool(v.Ok))
 		})
 	}
 }
@@ -58,9 +58,9 @@ func TestMarshalDatastore(t *testing.T) {
 
 			got, err := xml.Marshal(&v)
 			if !tc.shouldErr {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
-			assert.Equal(t, tc.want, string(got))
+			require.Equal(t, tc.want, string(got))
 		})
 	}
 }
@@ -169,18 +169,50 @@ func TestEditConfig(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.EditConfig(context.Background(), tc.target, tc.config, tc.options...)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.mustMatch {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 
 			for _, match := range tc.noMatch {
-				assert.NotRegexp(t, match, string(sentMsg))
+				require.NotRegexp(t, match, string(sentMsg))
 			}
+		})
+	}
+}
+
+func TestDiscardChanges(t *testing.T) {
+	tt := []struct {
+		name   string
+		source any
+		match  string
+	}{
+		{
+			name:  "discard-changes",
+			match: `<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><discard-changes xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"></discard-changes></rpc>`,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := newTestServer(t)
+			sess := newSession(ts.transport())
+			sess.serverCaps = newCapabilitySet(CandidateCapability)
+			go sess.recv()
+
+			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
+
+			err := sess.DiscardChanges(context.Background())
+			require.NoError(t, err)
+
+			sentMsg, err := ts.popReq()
+			require.NoError(t, err)
+
+			require.Equal(t, tc.match, string(sentMsg))
 		})
 	}
 }
@@ -229,13 +261,13 @@ func TestCopyConfig(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.CopyConfig(context.Background(), tc.source, tc.target)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -263,13 +295,13 @@ func TestDeleteConfig(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.DeleteConfig(context.Background(), tc.target)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -300,13 +332,13 @@ func TestValidateConfig(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.Validate(context.Background(), tc.source)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -334,13 +366,13 @@ func TestLock(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.Lock(context.Background(), tc.target)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -368,13 +400,13 @@ func TestUnlock(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.Unlock(context.Background(), tc.target)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -402,14 +434,14 @@ func TestKillSession(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			reply, err := sess.KillSession(context.Background(), tc.id)
-			assert.NoError(t, err)
-			assert.NotNil(t, reply)
+			require.NoError(t, err)
+			require.NotNil(t, reply)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -467,13 +499,13 @@ func TestCommit(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.Commit(context.Background(), tc.options...)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}
@@ -509,13 +541,13 @@ func TestCancelCommit(t *testing.T) {
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
 			err := sess.CancelCommit(context.Background(), tc.options...)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			for _, match := range tc.matches {
-				assert.Regexp(t, match, string(sentMsg))
+				require.Regexp(t, match, string(sentMsg))
 			}
 		})
 	}

@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var rawXMLTests = []struct {
@@ -45,8 +45,8 @@ func TestRawXMLUnmarshal(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got RawXML
 			err := xml.Unmarshal(tc.xml, &got)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.element, got)
+			require.NoError(t, err)
+			require.Equal(t, tc.element, got)
 		})
 	}
 }
@@ -55,8 +55,8 @@ func TestRawXMLMarshal(t *testing.T) {
 	for _, tc := range rawXMLTests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := xml.Marshal(&tc.element)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.xml, got)
+			require.NoError(t, err)
+			require.Equal(t, tc.xml, got)
 		})
 	}
 }
@@ -128,17 +128,16 @@ func TestUnmarshalHelloMsg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got hello
 			err := xml.Unmarshal(tc.raw, &got)
-			assert.NoError(t, err)
-			assert.Equal(t, got, tc.msg)
+			require.NoError(t, err)
+			require.Equal(t, got, tc.msg)
 		})
 	}
 }
 func TestMarshalHelloMsg(t *testing.T) {
 	for _, tc := range helloMsgTestTable {
 		t.Run(tc.name, func(t *testing.T) {
-			out, err := xml.Marshal(tc.msg)
-			t.Logf("out: %s", out)
-			assert.NoError(t, err)
+			_, err := xml.Marshal(tc.msg)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -188,15 +187,13 @@ func TestMarshalRPCMsg(t *testing.T) {
 				MessageID: 1,
 				Operation: tc.operation,
 			})
-			t.Logf("out: %s", out)
 
 			if tc.err {
-				assert.Error(t, err)
-				return
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, out, tc.want)
 			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, out, tc.want)
 		})
 	}
 }
@@ -249,8 +246,8 @@ func TestUnmarshalRPCReply(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got Reply
 			err := xml.Unmarshal(tc.reply, &got)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.want, got)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
 		})
 	}
 
