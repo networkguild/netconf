@@ -16,7 +16,7 @@ func (f Filter) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 type GetRequest struct {
 	XMLName      xml.Name
 	Attr         []xml.Attr   `xml:",attr,omitempty"`
-	Source       Datastore    `xml:"source,omitempty"`
+	Source       *Datastore   `xml:"source,omitempty"`
 	Filter       Filter       `xml:"filter,omitempty"`
 	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
 }
@@ -73,7 +73,7 @@ type GetOption interface {
 func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*Reply, error) {
 	req := GetRequest{
 		XMLName: xml.Name{Space: baseNetconfNs, Local: "get-config"},
-		Source:  source,
+		Source:  &source,
 	}
 
 	for _, opt := range opts {
