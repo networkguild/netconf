@@ -44,13 +44,14 @@ func TestMarshalDatastore(t *testing.T) {
 		{Running, "<rpc><target><running/></target></rpc>", false},
 		{Startup, "<rpc><target><startup/></target></rpc>", false},
 		{Candidate, "<rpc><target><candidate/></target></rpc>", false},
-		{Datastore("custom-store"), "<rpc><target><custom-store/></target></rpc>", false},
-		{Datastore(""), "", true},
-		{Datastore("<xml-elements>"), "<rpc><target><&lt;xml-elements&gt;/></target></rpc>", true},
+		{Datastore{Store: "custom-store"}, "<rpc><target><custom-store/></target></rpc>", false},
+		{Datastore{Store: ""}, "", true},
+		{Datastore{Store: "<xml-elements>"}, "<rpc><target><&lt;xml-elements&gt;/></target></rpc>", true},
+		{Datastore{Store: "candidate", Region: "bof"}, "<rpc><target><configuration-region>bof</configuration-region><candidate/></target></rpc>", false},
 	}
 
 	for _, tc := range tt {
-		t.Run(string(tc.input), func(t *testing.T) {
+		t.Run("test"+tc.input.Store, func(t *testing.T) {
 			v := struct {
 				XMLName xml.Name  `xml:"rpc"`
 				Target  Datastore `xml:"target"`
@@ -157,6 +158,27 @@ func TestEditConfig(t *testing.T) {
 			},
 			noMatch: []*regexp.Regexp{
 				regexp.MustCompile(`<config>`),
+			},
+		},
+		{
+			name: "candidate with bof configuration region no options",
+			target: Datastore{
+				Store:  "candidate",
+				Region: "bof",
+			},
+			config: structuredCfg{
+				System: structuredCfgSystem{
+					Hostname: "bof",
+				},
+			},
+			mustMatch: []*regexp.Regexp{
+				regexp.MustCompile(`<target>\S*<configuration-region>bof</configuration-region><candidate/>\S*</target>`),
+				regexp.MustCompile(
+					`<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">\S*<system>\S*<host-name>bof</host-name>\S*</system>\S*</config>`,
+				),
+			},
+			noMatch: []*regexp.Regexp{
+				regexp.MustCompile(`<url>`),
 			},
 		},
 	}
@@ -287,7 +309,7 @@ func TestDeleteConfig(t *testing.T) {
 	}
 
 	for _, tc := range tt {
-		t.Run(string(tc.target), func(t *testing.T) {
+		t.Run("test"+tc.target.Store, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess := newSession(ts.transport())
 			go sess.recv()
@@ -358,7 +380,7 @@ func TestLock(t *testing.T) {
 	}
 
 	for _, tc := range tt {
-		t.Run(string(tc.target), func(t *testing.T) {
+		t.Run("test"+tc.target.Store, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess := newSession(ts.transport())
 			go sess.recv()
@@ -392,7 +414,7 @@ func TestUnlock(t *testing.T) {
 	}
 
 	for _, tc := range tt {
-		t.Run(string(tc.target), func(t *testing.T) {
+		t.Run("test"+tc.target.Store, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess := newSession(ts.transport())
 			go sess.recv()
@@ -485,6 +507,13 @@ func TestCommit(t *testing.T) {
 			options: []CommitOption{WithPersistID("myid")},
 			matches: []*regexp.Regexp{
 				regexp.MustCompile(`<commit xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"><persist-id>myid</persist-id></commit>`),
+			},
+		},
+		{
+			name:    "configuration region",
+			options: []CommitOption{WithConfigurationRegion("bof")},
+			matches: []*regexp.Regexp{
+				regexp.MustCompile(`<commit xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration-region>bof</configuration-region></commit>`),
 			},
 		},
 	}

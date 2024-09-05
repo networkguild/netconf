@@ -34,21 +34,35 @@ func (b *ExtantBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error 
 	return nil
 }
 
-type Datastore string
+type Datastore struct {
+	Store  string
+	Region string
+}
+
+func (s Datastore) String() string {
+	if s.Region != "" {
+		return fmt.Sprintf("%s (%s)", s.Store, s.Region)
+	}
+	return s.Store
+}
 
 func (s Datastore) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	if s == "" {
+	if s.Store == "" {
 		return fmt.Errorf("datastores cannot be empty")
 	}
 
-	escaped, err := escapeXML(string(s))
+	escaped, err := escapeXML(s.Store)
 	if err != nil {
 		return fmt.Errorf("invalid string element: %w", err)
 	}
 
+	inner := "<" + escaped + "/>"
+	if s.Region != "" {
+		inner = fmt.Sprintf("<configuration-region>%s</configuration-region>%s", s.Region, inner)
+	}
 	v := struct {
 		Elem string `xml:",innerxml"`
-	}{Elem: "<" + escaped + "/>"}
+	}{Elem: inner}
 	return e.EncodeElement(&v, start)
 }
 
@@ -70,16 +84,22 @@ func (u URL) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 }
 
 const (
+	RunningDatastore   = "running"
+	CandidateDatastore = "candidate"
+	StartupDatastore   = "startup"
+)
+
+var (
 	// Running configuration datastore. Required by RFC6241
-	Running Datastore = "running"
+	Running = Datastore{Store: "running"}
 
 	// Candidate configuration datastore.  Supported with the
 	// `:candidate` capability defined in RFC6241 section 8.3
-	Candidate Datastore = "candidate"
+	Candidate = Datastore{Store: "candidate"}
 
 	// Startup configuration datastore.  Supported with the
 	// `:startup` capability defined in RFC6241 section 8.7
-	Startup Datastore = "startup" //
+	Startup = Datastore{Store: "startup"} //
 )
 
 // MergeStrategy defines the strategies for merging configuration in a
@@ -133,7 +153,7 @@ const (
 type TestStrategy string
 
 const (
-	// TestThenSet will validate the configuration and only if is is valid then
+	// TestThenSet will validate the configuration and only if is valid then
 	// apply the configuration to the datastore.
 	TestThenSet TestStrategy = "test-then-set"
 
@@ -373,6 +393,7 @@ type CommitReq struct {
 	ConfirmTimeout int64      `xml:"confirm-timeout,omitempty"`
 	Persist        string     `xml:"persist,omitempty"`
 	PersistID      string     `xml:"persist-id,omitempty"`
+	Region         string     `xml:"configuration-region,omitempty"`
 }
 
 // CommitOption is a optional arguments to [Session.Commit] method
@@ -386,6 +407,7 @@ type confirmedTimeout struct {
 }
 type persist string
 type PersistID string
+type region string
 
 func (o confirmed) apply(req *CommitReq) { req.Confirmed = true }
 func (o confirmedTimeout) apply(req *CommitReq) {
@@ -397,6 +419,7 @@ func (o persist) apply(req *CommitReq) {
 	req.Persist = string(o)
 }
 func (o PersistID) apply(req *CommitReq) { req.PersistID = string(o) }
+func (o region) apply(req *CommitReq)    { req.Region = string(o) }
 
 // WithConfirmed will mark the commits as requiring confirmation or will roll back
 // after the default timeout on the device (default should be 600s).  The commit
@@ -422,6 +445,8 @@ func WithPersist(id string) CommitOption { return persist(id) }
 // identifier.  This allows you to confirm a commit from (potentially) another
 // session.
 func WithPersistID(id string) PersistID { return PersistID(id) }
+
+func WithConfigurationRegion(reg string) CommitOption { return region(reg) }
 
 // Commit will commit a candidate config to the running config as defined in [RFC6241 8.3.4.1].
 // This requires the device to support the [CandidateCapability] capability.
