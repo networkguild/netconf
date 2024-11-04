@@ -134,6 +134,13 @@ func (s *Session) handshake() error {
 	}
 	defer r.Close()
 
+	clientMsg := hello{
+		Capabilities: s.clientCaps.All(),
+	}
+	if err := s.writeMsg(&clientMsg); err != nil {
+		return fmt.Errorf("failed to write hello message: %w", err)
+	}
+
 	var serverMsg hello
 	if err := xml.NewDecoder(r).Decode(&serverMsg); err != nil {
 		return fmt.Errorf("failed to read server hello message: %w", err)
@@ -149,13 +156,6 @@ func (s *Session) handshake() error {
 
 	s.serverCaps = newCapabilitySet(serverMsg.Capabilities...)
 	s.sessionID = serverMsg.SessionID
-
-	clientMsg := hello{
-		Capabilities: s.clientCaps.All(),
-	}
-	if err := s.writeMsg(&clientMsg); err != nil {
-		return fmt.Errorf("failed to write hello message: %w", err)
-	}
 
 	const baseCap11 = baseCap + ":1.1"
 	if s.serverCaps.Has(baseCap11) && s.clientCaps.Has(baseCap11) {
