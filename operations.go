@@ -244,12 +244,14 @@ func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, 
 
 	switch v := config.(type) {
 	case string:
-		if !strings.HasPrefix(v, configPrefix) {
+		v = strings.TrimSpace(v)
+		if !strings.HasSuffix(v, configSuffix) {
 			v = fmt.Sprintf("%s\n%s\n%s", configPrefix+">", v, configSuffix)
 		}
 		req.Inner = []byte(v)
 	case []byte:
-		if !bytes.HasPrefix(v, []byte(configPrefix)) {
+		v = bytes.TrimSpace(v)
+		if !bytes.HasSuffix(v, []byte(configSuffix)) {
 			v = []byte(fmt.Sprintf("%s\n%s\n%s", configPrefix+">", v, configSuffix))
 		}
 		req.Inner = v
@@ -401,19 +403,25 @@ type CommitOption interface {
 	apply(*CommitReq)
 }
 
-type confirmed bool
-type confirmedTimeout struct {
-	time.Duration
-}
-type persist string
-type PersistID string
-type region string
+type (
+	confirmed        bool
+	confirmedTimeout struct {
+		time.Duration
+	}
+)
+
+type (
+	persist   string
+	PersistID string
+	region    string
+)
 
 func (o confirmed) apply(req *CommitReq) { req.Confirmed = true }
 func (o confirmedTimeout) apply(req *CommitReq) {
 	req.Confirmed = true
 	req.ConfirmTimeout = int64(o.Seconds())
 }
+
 func (o persist) apply(req *CommitReq) {
 	req.Confirmed = true
 	req.Persist = string(o)
