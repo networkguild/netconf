@@ -1,9 +1,13 @@
 package netconf
 
+import (
+	"strings"
+)
+
 const (
-	baseCap       = "urn:ietf:params:netconf:base"
-	stdCapPrefix  = "urn:ietf:params:netconf:capability"
-	baseNetconfNs = "urn:ietf:params:xml:ns:netconf:base:1.0"
+	BaseCapability = "urn:ietf:params:netconf:base"
+	stdCapPrefix   = "urn:ietf:params:netconf:capability"
+	baseNetconfNs  = "urn:ietf:params:xml:ns:netconf:base:1.0"
 )
 
 const (
@@ -21,8 +25,8 @@ const (
 // DefaultCapabilities are the capabilities sent by the client during the hello
 // exchange by the server.
 var DefaultCapabilities = []string{
-	"urn:ietf:params:netconf:base:1.0",
-	"urn:ietf:params:netconf:base:1.1",
+	BaseCapability + ":1.0",
+	BaseCapability + ":1.1",
 }
 
 // ExpandCapability will automatically add the standard capability prefix of
@@ -32,8 +36,12 @@ func ExpandCapability(s string) string {
 		return ""
 	}
 
-	if s[0] != ':' {
+	if strings.HasPrefix(s, stdCapPrefix+":") {
 		return s
+	}
+
+	if s[0] != ':' {
+		s = ":" + s
 	}
 
 	return stdCapPrefix + s

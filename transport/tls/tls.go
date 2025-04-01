@@ -6,7 +6,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/networkguild/netconf/transport/internal"
+	"github.com/networkguild/netconf/internal"
 )
 
 // alias it to a private type, so we can make it private when embedding

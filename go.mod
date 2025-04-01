@@ -1,6 +1,7 @@
 module github.com/networkguild/netconf
 
-go 1.23
+go 1.24.0
+
 require (
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.36.0

@@ -7,7 +7,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/networkguild/netconf/transport/internal"
+	"github.com/networkguild/netconf/internal"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -16,11 +16,11 @@ type framer = internal.Framer
 
 // Transport implements RFC6242 for implementing NETCONF protocol over SSH.
 type Transport struct {
+	*framer
+
 	stdin io.WriteCloser
 	c     *ssh.Client
 	sess  *ssh.Session
-
-	*framer
 
 	managed bool
 }
@@ -48,19 +48,10 @@ func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig, o
 		return nil, err
 	}
 
-	// Setup a go routine to monitor the context and close the connection.  This
-	// is needed as the underlying ssh library doesn't support contexts so this
-	// approximates a context based cancellation/timeout for the ssh handshake.
-	//
-	// An alternative would be timeout based with conn.SetDeadline(), but then we
-	// would manage two timeouts.  One for tcp connection and one for ssh
-	// handshake and wouldn't support any other event based cancellation.
 	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
-			// context is canceled so close the underlying connection.  Will
-			// will catch ctx.Err() later.
 			conn.Close()
 		case <-done:
 		}
@@ -68,8 +59,6 @@ func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig, o
 
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
-		// if there is a context timeout return that error instead of the actual
-		// error from ssh.NewClientConn.
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -111,12 +100,10 @@ func newTransport(client *ssh.Client, managed bool, opts ...Opt) (*Transport, er
 	}
 
 	tr := &Transport{
-		c:     client,
-		sess:  sess,
-		stdin: w,
-
-		framer: internal.NewFramer(r, w),
-
+		framer:  internal.NewFramer(r, w),
+		c:       client,
+		sess:    sess,
+		stdin:   w,
 		managed: managed,
 	}
 

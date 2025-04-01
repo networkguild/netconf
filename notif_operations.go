@@ -58,5 +58,5 @@ func (s *Session) CreateSubscription(ctx context.Context, opts ...CreateSubscrip
 		opt.apply(&req)
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
