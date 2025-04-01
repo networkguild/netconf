@@ -4,7 +4,7 @@ import (
 	"io"
 )
 
-// Transport is used for a netconf.Session to talk to the device.  It is message
+// Transport is used for a netconf.ISession to talk to the device.  It is message
 // oriented to allow for framing and other details to happen on a per-message
 // basis.
 type Transport interface {
@@ -15,7 +15,7 @@ type Transport interface {
 
 	// MsgWriter returns a new io.WriteCloser to write a single netconf message.
 	// After writing a message the writer must be closed. Implementers should
-	// make sure only a single writer can be obtained and return a error if
+	// make sure only a single writer can be obtained and return an error if
 	// multiple writers are attempted.
 	MsgWriter() (io.WriteCloser, error)
 

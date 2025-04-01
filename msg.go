@@ -34,45 +34,51 @@ func (x *RawXML) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return e.EncodeElement(&inner, start)
 }
 
-type request struct {
+type Rpc struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc"`
 	MessageID uint64   `xml:"message-id,attr"`
 	Operation any      `xml:",innerxml"`
 }
 
-func (msg *request) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+func (msg *Rpc) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 	if msg.Operation == nil {
 		return fmt.Errorf("operation cannot be nil")
 	}
 
-	type rpcMsg request
+	type rpcMsg Rpc
 	inner := rpcMsg(*msg)
 	return e.Encode(&inner)
 }
 
-type Reply struct {
+type Hello struct {
+	XMLName      xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 hello"`
+	SessionID    uint64   `xml:"session-id,omitempty"`
+	Capabilities []string `xml:"capabilities>capability"`
+}
+
+type RpcReply struct {
 	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc-reply"`
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
 	rpc       []byte
 }
 
-// Decode decodes the Reply into the v
-func (r Reply) Decode(v any) error {
+// Decode decodes the RpcReply into the v
+func (r RpcReply) Decode(v any) error {
 	return xml.Unmarshal(r.rpc, v)
 }
 
-// String returns the string representation of the Reply inside <data> or some other element
-func (r Reply) String() string {
+// String returns the string representation of the RpcReply inside <data> or some other element
+func (r RpcReply) String() string {
 	return string(r.rpc)
 }
 
-// Raw returns full rpc Reply
-func (r Reply) Raw() []byte {
+// Raw returns full rpc RpcReply
+func (r RpcReply) Raw() []byte {
 	return r.rpc
 }
 
-func (r Reply) Err(severity ...ErrSeverity) error {
+func (r RpcReply) Err(severity ...ErrSeverity) error {
 	if len(r.Errors) == 0 {
 		return nil
 	}

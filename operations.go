@@ -265,7 +265,7 @@ func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, 
 		opt.apply(&req)
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 type DiscardChangesReq struct {
@@ -276,7 +276,7 @@ type DiscardChangesReq struct {
 //
 // [RFC6241 8.3.4.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.2
 func (s *Session) DiscardChanges(ctx context.Context) error {
-	return s.Call(ctx, new(DiscardChangesReq), nil)
+	return s.call(ctx, new(DiscardChangesReq), nil)
 }
 
 type CopyConfigReq struct {
@@ -300,7 +300,7 @@ func (s *Session) CopyConfig(ctx context.Context, source, target any) error {
 		Target: target,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 type DeleteConfigReq struct {
@@ -317,7 +317,7 @@ func (s *Session) DeleteConfig(ctx context.Context, target Datastore) error {
 		Target: target,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 type LockReq struct {
@@ -335,7 +335,7 @@ func (s *Session) Lock(ctx context.Context, target Datastore) error {
 		Target:  target,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 // Unlock issues the `<unlock>` operation as defined in [RFC6241 7.6]
@@ -348,7 +348,7 @@ func (s *Session) Unlock(ctx context.Context, target Datastore) error {
 		Target:  target,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 type KillSessionReq struct {
@@ -360,12 +360,12 @@ type KillSessionReq struct {
 // for force terminating the NETCONF session.
 //
 // [RFC6241 7.9]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.9
-func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*Reply, error) {
+func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*RpcReply, error) {
 	req := KillSessionReq{
 		SessionID: sessionID,
 	}
 
-	return s.Do(ctx, &req)
+	return s.do(ctx, &req)
 }
 
 type ValidateReq struct {
@@ -386,7 +386,7 @@ func (s *Session) Validate(ctx context.Context, source any) error {
 		Source: source,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 type CommitReq struct {
@@ -475,7 +475,7 @@ func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
 		return fmt.Errorf("PersistID cannot be used with Confirmed/ConfirmedTimeout or Persist options")
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
 // CancelCommitOption is a optional arguments to [Session.CancelCommit] method
@@ -499,10 +499,16 @@ func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) 
 		opt.applyCancelCommit(&req)
 	}
 
-	return s.Call(ctx, &req, nil)
+	_, err := s.do(ctx, &req)
+	return err
 }
 
-// Dispatch issues custom `<rpc>` operation
-func (s *Session) Dispatch(ctx context.Context, rpc any) (*Reply, error) {
-	return s.Do(ctx, &rpc)
+// Dispatch issues custom `<rpc>` operation and returns RpcReply
+func (s *Session) Dispatch(ctx context.Context, rpc any) (*RpcReply, error) {
+	return s.do(ctx, &rpc)
+}
+
+// DispatchWithReply issues custom `<rpc>` operation and decodes the response into a pointer at `resp`
+func (s *Session) DispatchWithReply(ctx context.Context, rpc, resp any) error {
+	return s.call(ctx, &rpc, &resp)
 }
