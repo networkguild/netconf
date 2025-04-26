@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/networkguild/netconf/internal"
+	"github.com/networkguild/netconf/transport"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -41,7 +42,7 @@ func WithDebugCapture(in io.Writer, out io.Writer) Opt {
 //	 	t, err := NewTransport(c)
 //
 // When the transport is closed the underlying connection is also closed.
-func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig, opts ...Opt) (*Transport, error) {
+func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig, opts ...Opt) (transport.Transport, error) {
 	d := net.Dialer{Timeout: config.Timeout}
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -74,7 +75,7 @@ func Dial(ctx context.Context, network, addr string, config *ssh.ClientConfig, o
 // with netconf.  Unlike Dial, the underlying client will not be automatically
 // closed when the transport is closed (however any sessions and subsystems
 // are still closed).
-func NewTransport(client *ssh.Client, opts ...Opt) (*Transport, error) {
+func NewTransport(client *ssh.Client, opts ...Opt) (transport.Transport, error) {
 	return newTransport(client, false, opts...)
 }
 

@@ -225,7 +225,7 @@ func (r *chunkReader) ReadByte() (byte, error) {
 // Close will read the rest of the frame and consume it including
 // the end-of-frame markers if we haven't already done so.
 func (r *chunkReader) Close() error {
-	defer func() { r.r = nil }()
+	r.r = nil
 	return nil
 }
 
@@ -309,16 +309,8 @@ func (r *eomReader) ReadByte() (byte, error) {
 // Close will read the rest of the frame and consume it including
 // the end-of-frame marker.
 func (r *eomReader) Close() error {
-	defer func() { r.r = nil }()
-
-	var err error
-	for err == nil {
-		_, err = r.ReadByte()
-		if err == io.EOF {
-			return nil
-		}
-	}
-	return err
+	r.r = nil
+	return nil
 }
 
 type eomWriter struct {

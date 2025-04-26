@@ -166,7 +166,7 @@ func TestMarshalRPCMsg(t *testing.T) {
 		},
 		{
 			name:      "validate",
-			operation: ValidateReq{Source: Running},
+			operation: ValidateRequest{Source: Running},
 			want:      []byte(`<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><validate xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"><source><running/></source></validate></rpc>`),
 		},
 		{
@@ -222,10 +222,6 @@ func TestUnmarshalRPCReply(t *testing.T) {
 			name:  "error",
 			reply: replyJunosGetConfigError,
 			want: RpcReply{
-				XMLName: xml.Name{
-					Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
-					Local: "rpc-reply",
-				},
 				MessageID: 1,
 				Errors: []RPCError{
 					{

@@ -185,7 +185,7 @@ func TestEditConfig(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -222,7 +222,7 @@ func TestDiscardChanges(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			sess.serverCaps = newCapabilitySet(CandidateCapability)
 			go sess.recv()
 
@@ -277,7 +277,7 @@ func TestCopyConfig(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -311,7 +311,7 @@ func TestDeleteConfig(t *testing.T) {
 	for _, tc := range tt {
 		t.Run("test"+tc.target.Store, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -347,7 +347,7 @@ func TestValidateConfig(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			sess.serverCaps = newCapabilitySet(ValidateCapability)
 			go sess.recv()
 
@@ -382,7 +382,7 @@ func TestLock(t *testing.T) {
 	for _, tc := range tt {
 		t.Run("test"+tc.target.Store, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -416,7 +416,7 @@ func TestUnlock(t *testing.T) {
 	for _, tc := range tt {
 		t.Run("test"+tc.target.Store, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -450,7 +450,7 @@ func TestKillSession(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(strconv.Itoa(int(tc.id)), func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -521,7 +521,7 @@ func TestCommit(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			sess.serverCaps = newCapabilitySet(ConfirmedCommitCapability)
 			go sess.recv()
 
@@ -564,7 +564,7 @@ func TestCancelCommit(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)

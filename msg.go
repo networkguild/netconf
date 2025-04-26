@@ -57,7 +57,6 @@ type Hello struct {
 }
 
 type RpcReply struct {
-	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc-reply"`
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
 	rpc       []byte
@@ -95,7 +94,6 @@ func (r RpcReply) Err(severity ...ErrSeverity) error {
 }
 
 type Notification struct {
-	XMLName   xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:notification:1.0 notification"`
 	EventTime time.Time `xml:"eventTime"`
 	rpc       []byte
 }

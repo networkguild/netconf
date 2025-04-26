@@ -49,7 +49,7 @@ func TestGetConfig(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -109,7 +109,7 @@ func TestGet(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><data>daa</data></rpc-reply>`)

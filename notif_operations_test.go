@@ -60,7 +60,9 @@ func TestCreateSubscription(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
-			sess := newSession(ts.transport())
+			sess, _ := newSession(WithTransport(ts.transport()), WithNotificationHandler(func(msg Notification) {
+				t.Logf("Received notification: %s", msg.String())
+			}))
 			sess.serverCaps = newCapabilitySet(NotificationCapability)
 			go sess.recv()
 

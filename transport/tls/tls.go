@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/networkguild/netconf/internal"
+	"github.com/networkguild/netconf/transport"
 )
 
 // alias it to a private type, so we can make it private when embedding
@@ -30,7 +31,7 @@ func WithDebugCapture(in io.Writer, out io.Writer) Opt {
 }
 
 // Dial will connect to a server via TLS and returns Transport.
-func Dial(ctx context.Context, network, addr string, config *tls.Config, opts ...Opt) (*Transport, error) {
+func Dial(ctx context.Context, network, addr string, config *tls.Config, opts ...Opt) (transport.Transport, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
@@ -45,7 +46,7 @@ func Dial(ctx context.Context, network, addr string, config *tls.Config, opts ..
 // NewTransport takes an already connected tls transport and returns a new
 // Transport.
 // The caller is responsible for closing underlying tls connection.
-func NewTransport(conn *tls.Conn, opts ...Opt) (*Transport, error) {
+func NewTransport(conn *tls.Conn, opts ...Opt) (transport.Transport, error) {
 	return newTransport(conn, false, opts...)
 }
 

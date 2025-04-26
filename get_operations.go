@@ -21,6 +21,31 @@ type GetRequest struct {
 	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
 }
 
+func NewGetConfigRequest(source Datastore, opts ...GetOption) *GetRequest {
+	req := GetRequest{
+		XMLName: xml.Name{Space: baseNetconfNs, Local: "get-config"},
+		Source:  &source,
+	}
+
+	for _, opt := range opts {
+		opt.apply(&req)
+	}
+
+	return &req
+}
+
+func NewGetRequest(opts ...GetOption) *GetRequest {
+	req := GetRequest{
+		XMLName: xml.Name{Space: baseNetconfNs, Local: "get"},
+	}
+
+	for _, opt := range opts {
+		opt.apply(&req)
+	}
+
+	return &req
+}
+
 type GetResponse struct {
 	Data []byte `xml:"data"`
 }
@@ -71,16 +96,7 @@ type GetOption interface {
 //
 // [RFC6241 7.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.1
 func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*RpcReply, error) {
-	req := GetRequest{
-		XMLName: xml.Name{Space: baseNetconfNs, Local: "get-config"},
-		Source:  &source,
-	}
-
-	for _, opt := range opts {
-		opt.apply(&req)
-	}
-
-	return s.do(ctx, &req)
+	return s.do(ctx, NewGetConfigRequest(source, opts...))
 }
 
 // Get issues the `<get>` operation as defined in [RFC6241 7.7]
@@ -98,10 +114,5 @@ func (s *Session) Get(ctx context.Context, opts ...GetOption) (*RpcReply, error)
 		opt.apply(&req)
 	}
 
-	reply, err := s.do(ctx, &req)
-	if err != nil {
-		return nil, err
-	}
-
-	return reply, nil
+	return s.do(ctx, NewGetRequest(opts...))
 }
