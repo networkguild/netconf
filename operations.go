@@ -192,9 +192,9 @@ type (
 	errorStrategy        ErrorStrategy
 )
 
-func (o defaultMergeStrategy) apply(req *EditConfigReq) { req.DefaultMergeStrategy = MergeStrategy(o) }
-func (o testStrategy) apply(req *EditConfigReq)         { req.TestStrategy = TestStrategy(o) }
-func (o errorStrategy) apply(req *EditConfigReq)        { req.ErrorStrategy = ErrorStrategy(o) }
+func (o defaultMergeStrategy) apply(req *EditConfigRequest) { req.DefaultMergeStrategy = MergeStrategy(o) }
+func (o testStrategy) apply(req *EditConfigRequest)  { req.TestStrategy = TestStrategy(o) }
+func (o errorStrategy) apply(req *EditConfigRequest) { req.ErrorStrategy = ErrorStrategy(o) }
 
 // WithDefaultMergeStrategy sets the default config merging strategy for the
 // <edit-config> operation.  Only [Merge], [Replace], and [None] are supported
@@ -212,7 +212,7 @@ func WithTestStrategy(op TestStrategy) EditConfigOption { return testStrategy(op
 // config.  See [ErrorStrategy] for the available options.
 func WithErrorStrategy(opt ErrorStrategy) EditConfigOption { return errorStrategy(opt) }
 
-type EditConfigReq struct {
+type EditConfigRequest struct {
 	XMLName              xml.Name      `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 edit-config"`
 	Target               Datastore     `xml:"target"`
 	DefaultMergeStrategy MergeStrategy `xml:"default-operation,omitempty"`
@@ -223,22 +223,8 @@ type EditConfigReq struct {
 	URL   string `xml:"url,omitempty"`
 }
 
-// EditConfigOption is a optional arguments to [Session.EditConfig] method
-type EditConfigOption interface {
-	apply(*EditConfigReq)
-}
-
-const (
-	configPrefix = "<config"
-	configSuffix = "</config>"
-)
-
-// EditConfig issues the `<edit-config>` operation defined in [RFC6241 7.2] for
-// updating an existing target config datastore.
-//
-// [RFC6241 7.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.2
-func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, opts ...EditConfigOption) error {
-	req := EditConfigReq{
+func NewEditConfigRequest(target Datastore, config any, opts ...EditConfigOption) *EditConfigRequest {
+	req := EditConfigRequest{
 		Target: target,
 	}
 
@@ -265,10 +251,28 @@ func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, 
 		opt.apply(&req)
 	}
 
-	return s.Call(ctx, &req, nil)
+	return &req
 }
 
-type DiscardChangesReq struct {
+// EditConfigOption is a optional arguments to [Session.EditConfig] method
+type EditConfigOption interface {
+	apply(*EditConfigRequest)
+}
+
+const (
+	configPrefix = "<config"
+	configSuffix = "</config>"
+)
+
+// EditConfig issues the `<edit-config>` operation defined in [RFC6241 7.2] for
+// updating an existing target config datastore.
+//
+// [RFC6241 7.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.2
+func (s *Session) EditConfig(ctx context.Context, target Datastore, config any, opts ...EditConfigOption) error {
+	return s.call(ctx, NewEditConfigRequest(target, config, opts...), nil)
+}
+
+type DiscardChangesRequest struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 discard-changes"`
 }
 
@@ -276,10 +280,10 @@ type DiscardChangesReq struct {
 //
 // [RFC6241 8.3.4.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.2
 func (s *Session) DiscardChanges(ctx context.Context) error {
-	return s.Call(ctx, new(DiscardChangesReq), nil)
+	return s.call(ctx, new(DiscardChangesRequest), nil)
 }
 
-type CopyConfigReq struct {
+type CopyConfigRequest struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 copy-config"`
 	Target  any      `xml:"target"`
 	Source  any      `xml:"source"`
@@ -295,15 +299,15 @@ type CopyConfigReq struct {
 //
 // [RFC6241 7.3]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.3
 func (s *Session) CopyConfig(ctx context.Context, source, target any) error {
-	req := CopyConfigReq{
+	req := CopyConfigRequest{
 		Source: source,
 		Target: target,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
-type DeleteConfigReq struct {
+type DeleteConfigRequest struct {
 	XMLName xml.Name  `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 delete-config"`
 	Target  Datastore `xml:"target"`
 }
@@ -313,16 +317,30 @@ type DeleteConfigReq struct {
 //
 // [RFC6241 7.4]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.4
 func (s *Session) DeleteConfig(ctx context.Context, target Datastore) error {
-	req := DeleteConfigReq{
+	req := DeleteConfigRequest{
 		Target: target,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
-type LockReq struct {
+type LockRequest struct {
 	XMLName xml.Name
 	Target  Datastore `xml:"target"`
+}
+
+func NewLockRequest(target Datastore) *LockRequest {
+	return &LockRequest{
+		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "lock"},
+		Target:  target,
+	}
+}
+
+func NewUnlockRequest(target Datastore) *LockRequest {
+	return &LockRequest{
+		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "unlock"},
+		Target:  target,
+	}
 }
 
 // Lock issues the `<lock>` operation as defined in [RFC6241 7.5]
@@ -330,12 +348,7 @@ type LockReq struct {
 //
 // [RFC6241 7.5]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.5
 func (s *Session) Lock(ctx context.Context, target Datastore) error {
-	req := LockReq{
-		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "lock"},
-		Target:  target,
-	}
-
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, NewLockRequest(target), nil)
 }
 
 // Unlock issues the `<unlock>` operation as defined in [RFC6241 7.6]
@@ -343,15 +356,10 @@ func (s *Session) Lock(ctx context.Context, target Datastore) error {
 //
 // [RFC6241 7.6]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.6
 func (s *Session) Unlock(ctx context.Context, target Datastore) error {
-	req := LockReq{
-		XMLName: xml.Name{Space: "urn:ietf:params:xml:ns:netconf:base:1.0", Local: "unlock"},
-		Target:  target,
-	}
-
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, NewUnlockRequest(target), nil)
 }
 
-type KillSessionReq struct {
+type KillSessionRequest struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 kill-session"`
 	SessionID uint64   `xml:"session-id"`
 }
@@ -360,15 +368,15 @@ type KillSessionReq struct {
 // for force terminating the NETCONF session.
 //
 // [RFC6241 7.9]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.9
-func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*Reply, error) {
-	req := KillSessionReq{
+func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*RpcReply, error) {
+	req := KillSessionRequest{
 		SessionID: sessionID,
 	}
 
-	return s.Do(ctx, &req)
+	return s.do(ctx, &req)
 }
 
-type ValidateReq struct {
+type ValidateRequest struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 validate"`
 	Source  any      `xml:"source"`
 }
@@ -382,14 +390,14 @@ func (s *Session) Validate(ctx context.Context, source any) error {
 	if !s.serverCaps.Has(ValidateCapability) {
 		return fmt.Errorf("server does not support validate")
 	}
-	req := ValidateReq{
+	req := ValidateRequest{
 		Source: source,
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, &req, nil)
 }
 
-type CommitReq struct {
+type CommitRequest struct {
 	XMLName        xml.Name   `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 commit"`
 	Confirmed      ExtantBool `xml:"confirmed,omitempty"`
 	ConfirmTimeout int64      `xml:"confirm-timeout,omitempty"`
@@ -398,9 +406,18 @@ type CommitReq struct {
 	Region         string     `xml:"configuration-region,omitempty"`
 }
 
+func NewCommitRequest(opts ...CommitOption) *CommitRequest {
+	var req CommitRequest
+	for _, opt := range opts {
+		opt.apply(&req)
+	}
+
+	return &req
+}
+
 // CommitOption is a optional arguments to [Session.Commit] method
 type CommitOption interface {
-	apply(*CommitReq)
+	apply(*CommitRequest)
 }
 
 type (
@@ -416,18 +433,18 @@ type (
 	region    string
 )
 
-func (o confirmed) apply(req *CommitReq) { req.Confirmed = true }
-func (o confirmedTimeout) apply(req *CommitReq) {
+func (o confirmed) apply(req *CommitRequest) { req.Confirmed = true }
+func (o confirmedTimeout) apply(req *CommitRequest) {
 	req.Confirmed = true
 	req.ConfirmTimeout = int64(o.Seconds())
 }
 
-func (o persist) apply(req *CommitReq) {
+func (o persist) apply(req *CommitRequest) {
 	req.Confirmed = true
 	req.Persist = string(o)
 }
-func (o PersistID) apply(req *CommitReq) { req.PersistID = string(o) }
-func (o region) apply(req *CommitReq)    { req.Region = string(o) }
+func (o PersistID) apply(req *CommitRequest) { req.PersistID = string(o) }
+func (o region) apply(req *CommitRequest)    { req.Region = string(o) }
 
 // WithConfirmed will mark the commits as requiring confirmation or will roll back
 // after the default timeout on the device (default should be 600s).  The commit
@@ -461,10 +478,7 @@ func WithConfigurationRegion(reg string) CommitOption { return region(reg) }
 //
 // [RFC6241 8.3.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.1
 func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
-	var req CommitReq
-	for _, opt := range opts {
-		opt.apply(&req)
-	}
+	req := NewCommitRequest(opts...)
 
 	if req.Confirmed {
 		if !s.serverCaps.Has(ConfirmedCommitCapability) {
@@ -475,34 +489,44 @@ func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
 		return fmt.Errorf("PersistID cannot be used with Confirmed/ConfirmedTimeout or Persist options")
 	}
 
-	return s.Call(ctx, &req, nil)
+	return s.call(ctx, req, nil)
 }
 
 // CancelCommitOption is a optional arguments to [Session.CancelCommit] method
 type CancelCommitOption interface {
-	applyCancelCommit(*CancelCommitReq)
+	applyCancelCommit(*CancelCommitRequest)
 }
 
-func (o PersistID) applyCancelCommit(req *CancelCommitReq) { req.PersistID = string(o) }
+func (o PersistID) applyCancelCommit(req *CancelCommitRequest) { req.PersistID = string(o) }
 
-type CancelCommitReq struct {
+type CancelCommitRequest struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 cancel-commit"`
 	PersistID string   `xml:"persist-id,omitempty"`
+}
+
+func NewCancelCommitRequest(opts ...CancelCommitOption) *CancelCommitRequest {
+	var req CancelCommitRequest
+	for _, opt := range opts {
+		opt.applyCancelCommit(&req)
+	}
+
+	return &req
 }
 
 // CancelCommit issues the `<cancel-commit/>` operation as defined in [RFC6241 8.4.4.1].
 //
 // [RFC6241 8.4.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.4.4.1
 func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) error {
-	var req CancelCommitReq
-	for _, opt := range opts {
-		opt.applyCancelCommit(&req)
-	}
-
-	return s.Call(ctx, &req, nil)
+	_, err := s.do(ctx, NewCancelCommitRequest(opts...))
+	return err
 }
 
-// Dispatch issues custom `<rpc>` operation
-func (s *Session) Dispatch(ctx context.Context, rpc any) (*Reply, error) {
-	return s.Do(ctx, &rpc)
+// Dispatch issues custom `<rpc>` operation and returns RpcReply
+func (s *Session) Dispatch(ctx context.Context, rpc any) (*RpcReply, error) {
+	return s.do(ctx, &rpc)
+}
+
+// DispatchWithReply issues custom `<rpc>` operation and decodes the response into a pointer at `resp`
+func (s *Session) DispatchWithReply(ctx context.Context, rpc, resp any) error {
+	return s.call(ctx, &rpc, &resp)
 }

@@ -21,6 +21,31 @@ type GetRequest struct {
 	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
 }
 
+func NewGetConfigRequest(source Datastore, opts ...GetOption) *GetRequest {
+	req := GetRequest{
+		XMLName: xml.Name{Space: baseNetconfNs, Local: "get-config"},
+		Source:  &source,
+	}
+
+	for _, opt := range opts {
+		opt.apply(&req)
+	}
+
+	return &req
+}
+
+func NewGetRequest(opts ...GetOption) *GetRequest {
+	req := GetRequest{
+		XMLName: xml.Name{Space: baseNetconfNs, Local: "get"},
+	}
+
+	for _, opt := range opts {
+		opt.apply(&req)
+	}
+
+	return &req
+}
+
 type GetResponse struct {
 	Data []byte `xml:"data"`
 }
@@ -57,7 +82,7 @@ func WithSubtreeFilter(subtree string) GetOption { return filter(subtree) }
 func WithDefaultMode(op DefaultsMode) GetOption { return defaultsMode(op) }
 
 // WithAttribute sets `attributes` in the `<get>` operation.
-// For example juniper allows <get [format="(json | set | text | xml)"]> attributes in get request.
+// For example juniper allows <get [format="(json | set | text | xml)"]> attributes in GetRequest.
 func WithAttribute(key, value string) GetOption {
 	return attr(xml.Attr{Name: xml.Name{Local: key}, Value: value})
 }
@@ -70,17 +95,8 @@ type GetOption interface {
 // `source` is the datastore to query.
 //
 // [RFC6241 7.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.1
-func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*Reply, error) {
-	req := GetRequest{
-		XMLName: xml.Name{Space: baseNetconfNs, Local: "get-config"},
-		Source:  &source,
-	}
-
-	for _, opt := range opts {
-		opt.apply(&req)
-	}
-
-	return s.Do(ctx, &req)
+func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*RpcReply, error) {
+	return s.do(ctx, NewGetConfigRequest(source, opts...))
 }
 
 // Get issues the `<get>` operation as defined in [RFC6241 7.7]
@@ -89,7 +105,7 @@ func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOp
 // Only the `subtree` filter type is supported.
 //
 // [RFC6241 7.7] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.7
-func (s *Session) Get(ctx context.Context, opts ...GetOption) (*Reply, error) {
+func (s *Session) Get(ctx context.Context, opts ...GetOption) (*RpcReply, error) {
 	req := GetRequest{
 		XMLName: xml.Name{Space: baseNetconfNs, Local: "get"},
 	}
@@ -98,10 +114,5 @@ func (s *Session) Get(ctx context.Context, opts ...GetOption) (*Reply, error) {
 		opt.apply(&req)
 	}
 
-	reply, err := s.Do(ctx, &req)
-	if err != nil {
-		return nil, err
-	}
-
-	return reply, nil
+	return s.do(ctx, NewGetRequest(opts...))
 }

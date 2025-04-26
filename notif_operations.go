@@ -3,16 +3,16 @@ package netconf
 import (
 	"context"
 	"encoding/xml"
-	"fmt"
+	"errors"
 	"time"
 )
 
 // CreateSubscriptionOption is a optional arguments to [Session.CreateSubscription] method
 type CreateSubscriptionOption interface {
-	apply(req *CreateSubscriptionReq)
+	apply(req *CreateSubscriptionRequest)
 }
 
-type CreateSubscriptionReq struct {
+type CreateSubscriptionRequest struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:notification:1.0 create-subscription"`
 	Stream    string   `xml:"stream,omitempty"`
 	Filter    Filter   `xml:"filter,omitempty"`
@@ -20,21 +20,30 @@ type CreateSubscriptionReq struct {
 	StopTime  string   `xml:"stopTime,omitempty"`
 }
 
+func NewSubscriptionRequest(opts ...CreateSubscriptionOption) *CreateSubscriptionRequest {
+	var req CreateSubscriptionRequest
+	for _, opt := range opts {
+		opt.apply(&req)
+	}
+
+	return &req
+}
+
 type stream string
 type startTime time.Time
 type stopTime time.Time
 type subscriptionFilter Filter
 
-func (o stream) apply(req *CreateSubscriptionReq) {
+func (o stream) apply(req *CreateSubscriptionRequest) {
 	req.Stream = string(o)
 }
-func (o startTime) apply(req *CreateSubscriptionReq) {
+func (o startTime) apply(req *CreateSubscriptionRequest) {
 	req.StartTime = time.Time(o).Format(time.RFC3339)
 }
-func (o stopTime) apply(req *CreateSubscriptionReq) {
+func (o stopTime) apply(req *CreateSubscriptionRequest) {
 	req.StopTime = time.Time(o).Format(time.RFC3339)
 }
-func (o subscriptionFilter) apply(req *CreateSubscriptionReq) {
+func (o subscriptionFilter) apply(req *CreateSubscriptionRequest) {
 	req.Filter = Filter(o)
 }
 
@@ -51,12 +60,12 @@ func WithFilterOption(subtree string) CreateSubscriptionOption  { return subscri
 // [RFC5277 2.1.1] https://www.rfc-editor.org/rfc/rfc5277.html#section-2.1.1
 func (s *Session) CreateSubscription(ctx context.Context, opts ...CreateSubscriptionOption) error {
 	if !s.serverCaps.Has(NotificationCapability) {
-		return fmt.Errorf("server does not support notifications")
-	}
-	var req CreateSubscriptionReq
-	for _, opt := range opts {
-		opt.apply(&req)
+		return errors.New("server does not support notifications")
 	}
 
-	return s.Call(ctx, &req, nil)
+	if s.notificationHandler == nil {
+		return errors.New("notification handler not set")
+	}
+
+	return s.call(ctx, NewSubscriptionRequest(opts...), nil)
 }
