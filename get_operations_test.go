@@ -1,7 +1,6 @@
 package netconf
 
 import (
-	"context"
 	"regexp"
 	"testing"
 
@@ -54,7 +53,7 @@ func TestGetConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.GetConfig(context.Background(), tc.source, tc.options...)
+			reply, err := sess.GetConfig(t.Context(), tc.source, tc.options...)
 			require.NoError(t, err)
 			require.NotNil(t, reply)
 
@@ -114,7 +113,7 @@ func TestGet(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><data>daa</data></rpc-reply>`)
 
-			reply, err := sess.Get(context.Background(), tc.options...)
+			reply, err := sess.Get(t.Context(), tc.options...)
 			require.NoError(t, err)
 			require.NotNil(t, reply)
 

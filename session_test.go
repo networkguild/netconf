@@ -32,7 +32,7 @@ func (s *testServer) handle(r io.ReadCloser, w io.WriteCloser) {
 	if !ok {
 		panic("testserver: no message to send")
 	}
-	s.t.Logf("tesserver send: %s", out)
+	s.t.Logf("testserver send: %s", out)
 
 	_, err = w.Write(out)
 	if err != nil {
@@ -40,7 +40,7 @@ func (s *testServer) handle(r io.ReadCloser, w io.WriteCloser) {
 	}
 
 	if err := w.Close(); err != nil {
-		panic("tesserver: failed to close outbound message")
+		panic("testserver: failed to close outbound message")
 	}
 }
 

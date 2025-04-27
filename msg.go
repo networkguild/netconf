@@ -24,7 +24,6 @@ func (x *RawXML) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	return nil
 }
 
-// MarshalXML implements xml.Marshaller.
 func (x *RawXML) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	inner := struct {
 		Data []byte `xml:",innerxml"`
@@ -63,17 +62,14 @@ type RpcReply struct {
 	rpc       []byte
 }
 
-// Decode decodes the RpcReply into the v
 func (r RpcReply) Decode(v any) error {
 	return xml.Unmarshal(r.rpc, v)
 }
 
-// String returns the string representation of the RpcReply inside <data> or some other element
 func (r RpcReply) String() string {
 	return string(r.rpc)
 }
 
-// Raw returns full rpc RpcReply
 func (r RpcReply) Raw() []byte {
 	return r.rpc
 }
@@ -100,17 +96,14 @@ type Notification struct {
 	rpc       []byte
 }
 
-// Decode decodes the Notification into the v
 func (r Notification) Decode(v any) error {
 	return xml.Unmarshal(r.rpc, v)
 }
 
-// String returns the string representation of the Notification inside <notification> element
 func (r Notification) String() string {
 	return string(r.rpc)
 }
 
-// Raw returns full rpc Notification
 func (r Notification) Raw() []byte {
 	return r.rpc
 }
@@ -144,7 +137,7 @@ const (
 	ErrBadElement            ErrTag = "bad-element"
 	ErrUnknownElement        ErrTag = "unknown-element"
 	ErrUnknownNamespace      ErrTag = "unknown-namespace"
-	ErrAccesDenied           ErrTag = "access-denied"
+	ErrAccessDenied          ErrTag = "access-denied"
 	ErrLockDenied            ErrTag = "lock-denied"
 	ErrResourceDenied        ErrTag = "resource-denied"
 	ErrRollbackFailed        ErrTag = "rollback-failed"

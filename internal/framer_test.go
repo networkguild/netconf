@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"slices"
 	"testing"
@@ -36,42 +37,60 @@ var chunkedTests = []struct {
 	input, want []byte
 	err         error
 }{
-	{"normal",
+	{
+		"normal",
 		[]byte("\n#3\nfoo\n##\n"),
 		[]byte("foo"),
-		nil},
-	{"empty frame",
+		nil,
+	},
+	{
+		"empty frame",
 		[]byte("\n##\n"),
 		[]byte(""),
-		nil},
-	{"multichunk",
+		nil,
+	},
+	{
+		"multichunk",
 		[]byte("\n#3\nfoo\n#3\nbar\n##\n"),
 		[]byte("foobar"),
-		nil},
-	{"missing header",
+		nil,
+	},
+	{
+		"missing header",
 		[]byte("uhoh"),
 		[]byte(""),
-		ErrMalformedChunk},
-	{"eof in header",
+		ErrMalformedChunk,
+	},
+	{
+		"eof in header",
 		[]byte("\n#\n"),
 		[]byte(""),
-		io.ErrUnexpectedEOF},
-	{"no headler",
+		io.ErrUnexpectedEOF,
+	},
+	{
+		"no headler",
 		[]byte("\n00\n"),
 		[]byte(""),
-		ErrMalformedChunk},
-	{"malformed header",
+		ErrMalformedChunk,
+	},
+	{
+		"malformed header",
 		[]byte("\n#big\n"),
 		[]byte(""),
-		ErrMalformedChunk},
-	{"zero len chunk",
+		ErrMalformedChunk,
+	},
+	{
+		"zero len chunk",
 		[]byte("\n#0\n"),
 		[]byte(""),
-		ErrMalformedChunk},
-	{"too big chunk",
+		ErrMalformedChunk,
+	},
+	{
+		"too big chunk",
 		[]byte("\n#4294967296\n"),
 		[]byte(""),
-		ErrMalformedChunk},
+		ErrMalformedChunk,
+	},
 	{"rfc example rpc", rfcChunkedRPC, rfcUnchunkedRPC, nil},
 }
 
@@ -98,7 +117,7 @@ func TestChunkReaderReadByte(t *testing.T) {
 			}
 			buf = buf[:n]
 
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				require.Equal(t, err, tc.err)
 			}
 			require.Equal(t, tc.want, buf)
@@ -186,7 +205,6 @@ func BenchmarkChunkedReadByte(b *testing.B) {
 		name string
 		r    io.ByteReader
 	}{
-		// test against bufio as a "baseline"
 		{"bufio", bufio.NewReader(src)},
 		{"chunkreader", &chunkReader{r: bufio.NewReader(src)}},
 	}
@@ -208,7 +226,6 @@ func BenchmarkChunkedRead(b *testing.B) {
 		name string
 		r    io.Reader
 	}{
-		// test against a standard reader and a bufio for a baseline
 		{"bare", onlyReader{src}},
 		{"bufio", onlyReader{bufio.NewReader(src)}},
 		{"chunkedreader", onlyReader{&chunkReader{r: bufio.NewReader(src)}}},
@@ -226,7 +243,7 @@ func BenchmarkChunkedRead(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				b.SetBytes(int64(n))
+				b.SetBytes(n)
 			}
 		})
 	}
@@ -253,29 +270,41 @@ var framedTests = []struct {
 	input, want []byte
 	err         error
 }{
-	{"normal",
+	{
+		"normal",
 		[]byte("foo]]>]]>"),
 		[]byte("foo"),
-		nil},
-	{"empty frame",
+		nil,
+	},
+	{
+		"empty frame",
 		[]byte("]]>]]>"),
 		[]byte(""),
-		nil},
-	{"next message",
+		nil,
+	},
+	{
+		"next message",
 		[]byte("foo]]>]]>bar]]>]]>"),
-		[]byte("foo"), nil},
-	{"no delim",
+		[]byte("foo"), nil,
+	},
+	{
+		"no delim",
 		[]byte("uhohwhathappened"),
 		[]byte("uhohwhathappened"),
-		io.ErrUnexpectedEOF},
-	{"truncated delim",
+		io.ErrUnexpectedEOF,
+	},
+	{
+		"truncated delim",
 		[]byte("foo]]>"),
 		[]byte("foo"),
-		io.ErrUnexpectedEOF},
-	{"partial delim",
+		io.ErrUnexpectedEOF,
+	},
+	{
+		"partial delim",
 		[]byte("foo]]>]]bar]]>]]>"),
 		[]byte("foo]]>]]bar"),
-		nil},
+		nil,
+	},
 	{"rfc example rpc", rfcEOMRPC, rfcUnframedRPC, nil},
 }
 
@@ -302,7 +331,7 @@ func TestEOMReadByte(t *testing.T) {
 			}
 			buf = buf[:n]
 
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				require.Equal(t, err, tc.err)
 			}
 
@@ -339,12 +368,10 @@ func TestEOMWriter(t *testing.T) {
 	require.Equal(t, want, buf.Bytes())
 }
 
-// force benchmarks to not use any fancy ReadFroms's or other shortcuts
 type onlyReader struct {
 	io.Reader
 }
 
-// force benchmarks to not use any fancy WriteTo's or other shortcuts
 type onlyWriter struct {
 	io.Writer
 }
@@ -397,7 +424,6 @@ func BenchmarkEOMRead(b *testing.B) {
 				}
 				b.SetBytes(n)
 			}
-
 		})
 	}
 }

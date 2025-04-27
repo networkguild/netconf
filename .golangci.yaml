@@ -1,0 +1,77 @@
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - dogsled
+    - durationcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - forcetypeassert
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gosec
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nolintlint
+    - prealloc
+    - sloglint
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - wastedassign
+  settings:
+    errchkjson:
+      check-error-free-encoding: false
+      report-no-exported: true
+    godot:
+      exclude:
+        - '@Router'
+    gosec:
+      excludes:
+        - G115
+    nolintlint:
+      require-specific: true
+      allow-unused: false
+    sloglint:
+      attr-only: true
+      static-msg: true
+      args-on-sep-lines: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - bodyclose
+        path: (.+)_test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - generated$
+issues:
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - generated$

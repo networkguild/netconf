@@ -133,6 +133,7 @@ func TestUnmarshalHelloMsg(t *testing.T) {
 		})
 	}
 }
+
 func TestMarshalHelloMsg(t *testing.T) {
 	for _, tc := range helloMsgTestTable {
 		t.Run(tc.name, func(t *testing.T) {
@@ -250,5 +251,4 @@ func TestUnmarshalRPCReply(t *testing.T) {
 			require.Equal(t, tc.want, got)
 		})
 	}
-
 }
