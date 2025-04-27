@@ -133,6 +133,7 @@ func TestUnmarshalHelloMsg(t *testing.T) {
 		})
 	}
 }
+
 func TestMarshalHelloMsg(t *testing.T) {
 	for _, tc := range helloMsgTestTable {
 		t.Run(tc.name, func(t *testing.T) {
@@ -222,6 +223,10 @@ func TestUnmarshalRPCReply(t *testing.T) {
 			name:  "error",
 			reply: replyJunosGetConfigError,
 			want: RpcReply{
+				XMLName: xml.Name{
+					Local: "rpc-reply",
+					Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
+				},
 				MessageID: 1,
 				Errors: []RPCError{
 					{
@@ -246,5 +251,4 @@ func TestUnmarshalRPCReply(t *testing.T) {
 			require.Equal(t, tc.want, got)
 		})
 	}
-
 }

@@ -1,5 +1,10 @@
 package netconf
 
+import (
+	"maps"
+	"slices"
+)
+
 const (
 	BaseCapability = "urn:ietf:params:netconf:base"
 	stdCapPrefix   = "urn:ietf:params:netconf:capability"
@@ -39,44 +44,34 @@ func ExpandCapability(s string) string {
 	return stdCapPrefix + s
 }
 
-type capabilitySet struct {
-	caps map[string]struct{}
-}
+type capabilitySet map[string]struct{}
 
 func newCapabilitySet(capabilities ...string) capabilitySet {
-	cs := capabilitySet{
-		caps: make(map[string]struct{}),
-	}
+	cs := make(capabilitySet, len(capabilities))
 	cs.Add(capabilities...)
 	return cs
 }
 
-func (cs *capabilitySet) Add(capabilities ...string) {
+func (cs capabilitySet) Add(capabilities ...string) {
 	if cs == nil {
 		return
 	}
 	for _, c := range capabilities {
-		c = ExpandCapability(c)
-		cs.caps[c] = struct{}{}
+		cs[ExpandCapability(c)] = struct{}{}
 	}
 }
 
-func (cs *capabilitySet) Has(s string) bool {
+func (cs capabilitySet) Has(s string) bool {
 	if cs == nil {
 		return false
 	}
-	s = ExpandCapability(s)
-	_, ok := cs.caps[s]
+	_, ok := cs[ExpandCapability(s)]
 	return ok
 }
 
-func (cs *capabilitySet) All() []string {
-	if cs == nil || len(cs.caps) == 0 {
+func (cs capabilitySet) All() []string {
+	if len(cs) == 0 {
 		return []string{}
 	}
-	out := make([]string, 0, len(cs.caps))
-	for c := range cs.caps {
-		out = append(out, c)
-	}
-	return out
+	return slices.Collect(maps.Keys(cs))
 }

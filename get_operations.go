@@ -62,7 +62,9 @@ const (
 )
 
 type defaultsMode DefaultsMode
+
 type filter Filter
+
 type attr xml.Attr
 
 func (o filter) apply(req *GetRequest)       { req.Filter = Filter(o) }

@@ -1,7 +1,6 @@
 package netconf
 
 import (
-	"context"
 	"encoding/xml"
 	"regexp"
 	"strconv"
@@ -190,7 +189,7 @@ func TestEditConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.EditConfig(context.Background(), tc.target, tc.config, tc.options...)
+			err := sess.EditConfig(t.Context(), tc.target, tc.config, tc.options...)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -228,7 +227,7 @@ func TestDiscardChanges(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.DiscardChanges(context.Background())
+			err := sess.DiscardChanges(t.Context())
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -282,7 +281,7 @@ func TestCopyConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.CopyConfig(context.Background(), tc.source, tc.target)
+			err := sess.CopyConfig(t.Context(), tc.source, tc.target)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -316,7 +315,7 @@ func TestDeleteConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.DeleteConfig(context.Background(), tc.target)
+			err := sess.DeleteConfig(t.Context(), tc.target)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -353,7 +352,7 @@ func TestValidateConfig(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.Validate(context.Background(), tc.source)
+			err := sess.Validate(t.Context(), tc.source)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -387,7 +386,7 @@ func TestLock(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.Lock(context.Background(), tc.target)
+			err := sess.Lock(t.Context(), tc.target)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -421,7 +420,7 @@ func TestUnlock(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.Unlock(context.Background(), tc.target)
+			err := sess.Unlock(t.Context(), tc.target)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -455,7 +454,7 @@ func TestKillSession(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			reply, err := sess.KillSession(context.Background(), tc.id)
+			reply, err := sess.KillSession(t.Context(), tc.id)
 			require.NoError(t, err)
 			require.NotNil(t, reply)
 
@@ -527,7 +526,7 @@ func TestCommit(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.Commit(context.Background(), tc.options...)
+			err := sess.Commit(t.Context(), tc.options...)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()
@@ -569,7 +568,7 @@ func TestCancelCommit(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.CancelCommit(context.Background(), tc.options...)
+			err := sess.CancelCommit(t.Context(), tc.options...)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()

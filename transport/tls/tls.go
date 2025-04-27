@@ -10,14 +10,13 @@ import (
 	"github.com/networkguild/netconf/transport"
 )
 
-// alias it to a private type, so we can make it private when embedding
 type framer = internal.Framer
 
 // Transport implements RFC7589 for implementing NETCONF over TLS.
 type Transport struct {
-	conn *tls.Conn
-
 	*framer
+
+	conn *tls.Conn
 
 	managed bool
 }
@@ -26,11 +25,11 @@ type Opt func(*Transport)
 
 func WithDebugCapture(in io.Writer, out io.Writer) Opt {
 	return func(t *Transport) {
-		t.framer.DebugCapture(in, out)
+		t.DebugCapture(in, out)
 	}
 }
 
-// Dial will connect to a server via TLS and returns Transport.
+// Dial will connect to a server via TLS and returns transport.Transport.
 func Dial(ctx context.Context, network, addr string, config *tls.Config, opts ...Opt) (transport.Transport, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, network, addr)
@@ -39,18 +38,16 @@ func Dial(ctx context.Context, network, addr string, config *tls.Config, opts ..
 	}
 
 	tlsConn := tls.Client(conn, config)
-	return newTransport(tlsConn, true, opts...)
-
+	return newTransport(tlsConn, true, opts...), nil
 }
 
-// NewTransport takes an already connected tls transport and returns a new
-// Transport.
+// NewTransport takes an already connected tls transport and returns a new transport.Transport.
 // The caller is responsible for closing underlying tls connection.
 func NewTransport(conn *tls.Conn, opts ...Opt) (transport.Transport, error) {
-	return newTransport(conn, false, opts...)
+	return newTransport(conn, false, opts...), nil
 }
 
-func newTransport(conn *tls.Conn, managed bool, opts ...Opt) (*Transport, error) {
+func newTransport(conn *tls.Conn, managed bool, opts ...Opt) *Transport {
 	tr := &Transport{
 		conn:    conn,
 		framer:  internal.NewFramer(conn, conn),
@@ -61,11 +58,11 @@ func newTransport(conn *tls.Conn, managed bool, opts ...Opt) (*Transport, error)
 		opt(tr)
 	}
 
-	return tr, nil
+	return tr
 }
 
 // Close will close the underlying transport
-// Underlying TLS connection is closed if managed by transport (created by Dial)
+// Underlying TLS connection is closed if managed by transport (created by Dial).
 func (t *Transport) Close() error {
 	if t.managed {
 		return t.conn.Close()

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// CreateSubscriptionOption is a optional arguments to [Session.CreateSubscription] method
+// CreateSubscriptionOption is a optional arguments to [Session.CreateSubscription] method.
 type CreateSubscriptionOption interface {
 	apply(req *CreateSubscriptionRequest)
 }
@@ -30,19 +30,25 @@ func NewSubscriptionRequest(opts ...CreateSubscriptionOption) *CreateSubscriptio
 }
 
 type stream string
+
 type startTime time.Time
+
 type stopTime time.Time
+
 type subscriptionFilter Filter
 
 func (o stream) apply(req *CreateSubscriptionRequest) {
 	req.Stream = string(o)
 }
+
 func (o startTime) apply(req *CreateSubscriptionRequest) {
 	req.StartTime = time.Time(o).Format(time.RFC3339)
 }
+
 func (o stopTime) apply(req *CreateSubscriptionRequest) {
 	req.StopTime = time.Time(o).Format(time.RFC3339)
 }
+
 func (o subscriptionFilter) apply(req *CreateSubscriptionRequest) {
 	req.Filter = Filter(o)
 }

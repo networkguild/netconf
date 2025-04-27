@@ -90,15 +90,15 @@ const (
 )
 
 var (
-	// Running configuration datastore. Required by RFC6241
+	// Running configuration datastore. Required by RFC6241.
 	Running = Datastore{Store: "running"}
 
 	// Candidate configuration datastore.  Supported with the
-	// `:candidate` capability defined in RFC6241 section 8.3
+	// `:candidate` capability defined in RFC6241 section 8.3.
 	Candidate = Datastore{Store: "candidate"}
 
 	// Startup configuration datastore.  Supported with the
-	// `:startup` capability defined in RFC6241 section 8.7
+	// `:startup` capability defined in RFC6241 section 8.7.
 	Startup = Datastore{Store: "startup"} //
 )
 
@@ -182,7 +182,7 @@ const (
 
 	// RollbackOnError will restore the configuration back to before the
 	// `<edit-config>` operation took place.  This requires the device to
-	// support the `:rollback-on-error` capabilitiy.
+	// support the `:rollback-on-error` capability.
 	RollbackOnError ErrorStrategy = "rollback-on-error"
 )
 
@@ -192,7 +192,9 @@ type (
 	errorStrategy        ErrorStrategy
 )
 
-func (o defaultMergeStrategy) apply(req *EditConfigRequest) { req.DefaultMergeStrategy = MergeStrategy(o) }
+func (o defaultMergeStrategy) apply(req *EditConfigRequest) {
+	req.DefaultMergeStrategy = MergeStrategy(o)
+}
 func (o testStrategy) apply(req *EditConfigRequest)  { req.TestStrategy = TestStrategy(o) }
 func (o errorStrategy) apply(req *EditConfigRequest) { req.ErrorStrategy = ErrorStrategy(o) }
 
@@ -254,7 +256,7 @@ func NewEditConfigRequest(target Datastore, config any, opts ...EditConfigOption
 	return &req
 }
 
-// EditConfigOption is a optional arguments to [Session.EditConfig] method
+// EditConfigOption is an optional arguments to [Session.EditConfig] method.
 type EditConfigOption interface {
 	apply(*EditConfigRequest)
 }
@@ -415,7 +417,7 @@ func NewCommitRequest(opts ...CommitOption) *CommitRequest {
 	return &req
 }
 
-// CommitOption is a optional arguments to [Session.Commit] method
+// CommitOption is a optional arguments to [Session.Commit] method.
 type CommitOption interface {
 	apply(*CommitRequest)
 }
@@ -492,7 +494,7 @@ func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
 	return s.call(ctx, req, nil)
 }
 
-// CancelCommitOption is a optional arguments to [Session.CancelCommit] method
+// CancelCommitOption is a optional arguments to [Session.CancelCommit] method.
 type CancelCommitOption interface {
 	applyCancelCommit(*CancelCommitRequest)
 }
@@ -521,12 +523,12 @@ func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) 
 	return err
 }
 
-// Dispatch issues custom `<rpc>` operation and returns RpcReply
+// Dispatch issues custom `<rpc>` operation and returns RpcReply.
 func (s *Session) Dispatch(ctx context.Context, rpc any) (*RpcReply, error) {
 	return s.do(ctx, &rpc)
 }
 
-// DispatchWithReply issues custom `<rpc>` operation and decodes the response into a pointer at `resp`
+// DispatchWithReply issues custom `<rpc>` operation and decodes the response into a pointer at `resp`.
 func (s *Session) DispatchWithReply(ctx context.Context, rpc, resp any) error {
 	return s.call(ctx, &rpc, &resp)
 }
