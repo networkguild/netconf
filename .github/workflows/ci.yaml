@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
   pull_request:
     types:
       - opened
@@ -12,13 +14,26 @@ env:
  GO111MODULE: on
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: WillAbides/setup-go-faster@v1.14.0
+        with:
+          go-version: '1.24.x'
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Go
         uses: WillAbides/setup-go-faster@v1.14.0
         with:
@@ -27,21 +42,11 @@ jobs:
       - name: Ensure dependencies
         run: |
           go mod tidy
-          go mod vendor
-
-      - name: Staticcheck
-        uses: dominikh/staticcheck-action@v1.3.1
-        with:
-          install-go: false
-          version: "latest"
-
-      - name: Vet
-        run: |
-          go vet ./...
+          git diff --exit-code -- go.mod go.sum
 
       - name: Run tests
         run: |
-          go test -mod vendor -race -covermode=atomic -coverprofile=coverage.out ./...
+          go test -race -covermode=atomic -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
