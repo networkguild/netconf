@@ -81,8 +81,8 @@ var helloMsgTestTable = []struct {
 		},
 	},
 	{
-		name: "junos",
-		raw: []byte(`<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+		name: "juniper",
+		raw: []byte(`<hello>
   <capabilities>
       <capability>urn:ietf:params:netconf:base:1.0</capability>
 	  <capability>urn:ietf:params:netconf:capability:candidate:1.0</capability>
@@ -102,7 +102,6 @@ var helloMsgTestTable = []struct {
 		msg: Hello{
 			XMLName: xml.Name{
 				Local: "hello",
-				Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
 			},
 			Capabilities: []string{
 				"urn:ietf:params:netconf:base:1.0",

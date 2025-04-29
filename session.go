@@ -187,6 +187,10 @@ func (s *Session) Close(ctx context.Context) error {
 
 func (s *Session) handshake(ctx context.Context) error {
 	clientMsg := Hello{
+		XMLName: xml.Name{
+			Local: "hello",
+			Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
+		},
 		Capabilities: s.clientCaps.All(),
 	}
 	s.mu.Lock()
