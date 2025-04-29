@@ -69,7 +69,6 @@ jobs:
       - uses: googleapis/release-please-action@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
-          release-type: go
           skip-github-pull-request: true
 
   release-pr:
@@ -88,7 +87,6 @@ jobs:
       - uses: googleapis/release-please-action@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
-          release-type: go
           skip-github-release: true
 
   automerge:
