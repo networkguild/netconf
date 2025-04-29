@@ -23,8 +23,8 @@ func TestUnmarshalOk(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			var v struct {
-				XMLName xml.Name   `xml:"foo"`
-				Ok      ExtantBool `xml:"ok"`
+				XMLName xml.Name     `xml:"foo"`
+				Ok      EmptyElement `xml:"ok"`
 			}
 
 			err := xml.Unmarshal([]byte(tc.input), &v)
@@ -521,7 +521,7 @@ func TestCommit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess, _ := newSession(WithTransport(ts.transport()))
-			sess.serverCaps = newCapabilitySet(ConfirmedCommitCapability)
+			sess.serverCaps = newCapabilitySet(ConfirmedCommitCapability, CandidateCapability)
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -565,6 +565,7 @@ func TestCancelCommit(t *testing.T) {
 			ts := newTestServer(t)
 			sess, _ := newSession(WithTransport(ts.transport()))
 			go sess.recv()
+			sess.serverCaps = newCapabilitySet(ConfirmedCommitCapability)
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 

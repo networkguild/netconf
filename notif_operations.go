@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// CreateSubscriptionOption is a optional arguments to [Session.CreateSubscription] method.
+// CreateSubscriptionOption is an optional arguments to [Session.CreateSubscription] method.
 type CreateSubscriptionOption interface {
 	apply(req *CreateSubscriptionRequest)
 }

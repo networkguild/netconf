@@ -9,28 +9,26 @@ import (
 	"time"
 )
 
-type ExtantBool bool
+type EmptyElement bool
 
-func (b ExtantBool) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	if !b {
+func (e EmptyElement) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
+	if !e {
 		return nil
 	}
-	// This produces a empty start/end tag (i.e <tag></tag>) vs a self-closing
-	// tag (<tag/>() which should be the same in XML, however I know certain
-	// vendors may have issues with this format. We may have to process this
-	// after xml encoding.
+	// This produces an empty start/end tag (i.e <tag></tag>) vs a self-closing
+	// tag (<tag/>) which should be the same in XML.
 	//
 	// See https://github.com/golang/go/issues/21399
 	// or https://github.com/golang/go/issues/26756 for a different hack.
-	return e.EncodeElement(struct{}{}, start)
+	return enc.EncodeElement(struct{}{}, start)
 }
 
-func (b *ExtantBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (e *EmptyElement) UnmarshalXML(dec *xml.Decoder, start xml.StartElement) error {
 	v := &struct{}{}
-	if err := d.DecodeElement(v, &start); err != nil {
+	if err := dec.DecodeElement(v, &start); err != nil {
 		return err
 	}
-	*b = v != nil
+	*e = v != nil
 	return nil
 }
 
@@ -204,7 +202,7 @@ func (o errorStrategy) apply(req *EditConfigRequest) { req.ErrorStrategy = Error
 // elements inside the `<config>` subtree).
 func WithDefaultMergeStrategy(op MergeStrategy) EditConfigOption { return defaultMergeStrategy(op) }
 
-// WithTestStrategy sets the `test-option` in the `<edit-config>“ operation.
+// WithTestStrategy sets the `test-option` in the `<edit-config>` operation.
 // This defines what testing should be done the supplied configuration.  See the
 // documentation on [TestStrategy] for details on each strategy.
 func WithTestStrategy(op TestStrategy) EditConfigOption { return testStrategy(op) }
@@ -282,6 +280,9 @@ type DiscardChangesRequest struct {
 //
 // [RFC6241 8.3.4.2]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.2
 func (s *Session) DiscardChanges(ctx context.Context) error {
+	if !s.serverCaps.Has(CandidateCapability) {
+		return fmt.Errorf("server does not support %s capability", CandidateCapability)
+	}
 	return s.call(ctx, new(DiscardChangesRequest), nil)
 }
 
@@ -390,7 +391,7 @@ type ValidateRequest struct {
 // [RFC6241 8.6.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.6.4.1
 func (s *Session) Validate(ctx context.Context, source any) error {
 	if !s.serverCaps.Has(ValidateCapability) {
-		return fmt.Errorf("server does not support validate")
+		return fmt.Errorf("server does not support %s capability", ValidateCapability)
 	}
 	req := ValidateRequest{
 		Source: source,
@@ -400,12 +401,12 @@ func (s *Session) Validate(ctx context.Context, source any) error {
 }
 
 type CommitRequest struct {
-	XMLName        xml.Name   `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 commit"`
-	Confirmed      ExtantBool `xml:"confirmed,omitempty"`
-	ConfirmTimeout int64      `xml:"confirm-timeout,omitempty"`
-	Persist        string     `xml:"persist,omitempty"`
-	PersistID      string     `xml:"persist-id,omitempty"`
-	Region         string     `xml:"configuration-region,omitempty"`
+	XMLName        xml.Name     `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 commit"`
+	Confirmed      EmptyElement `xml:"confirmed,omitempty"`
+	ConfirmTimeout int64        `xml:"confirm-timeout,omitempty"`
+	Persist        string       `xml:"persist,omitempty"`
+	PersistID      string       `xml:"persist-id,omitempty"`
+	Region         string       `xml:"configuration-region,omitempty"`
 }
 
 func NewCommitRequest(opts ...CommitOption) *CommitRequest {
@@ -417,7 +418,7 @@ func NewCommitRequest(opts ...CommitOption) *CommitRequest {
 	return &req
 }
 
-// CommitOption is a optional arguments to [Session.Commit] method.
+// CommitOption is an optional arguments to [Session.Commit] method.
 type CommitOption interface {
 	apply(*CommitRequest)
 }
@@ -462,10 +463,10 @@ func WithConfirmed() CommitOption { return confirmed(true) }
 // duration instead of the device's default.
 func WithConfirmedTimeout(timeout time.Duration) CommitOption { return confirmedTimeout{timeout} }
 
-// WithPersist allows you to set a identifier to confirm a commit in another
-// sessions.  Confirming the commit requires setting the `WithPersistID` in the
+// WithPersist allows you to set an identifier to confirm a commit in another
+// sessions. Confirming the commit requires setting the `WithPersistID` in the
 // following `Commit` call matching the id set on the confirmed commit.  Will
-// mark the commit as confirmed if not already set.
+// mark the commit as confirmed, if not already set.
 func WithPersist(id string) CommitOption { return persist(id) }
 
 // WithPersistID is used to confirm a previous commit set with a given
@@ -480,12 +481,13 @@ func WithConfigurationRegion(reg string) CommitOption { return region(reg) }
 //
 // [RFC6241 8.3.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.3.4.1
 func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
+	if !s.serverCaps.Has(CandidateCapability) {
+		return fmt.Errorf("server does not support %s capability", CandidateCapability)
+	}
 	req := NewCommitRequest(opts...)
 
-	if req.Confirmed {
-		if !s.serverCaps.Has(ConfirmedCommitCapability) {
-			return fmt.Errorf("server does not support confirmed config")
-		}
+	if bool(req.Confirmed) && !s.serverCaps.Has(ConfirmedCommitCapability) {
+		return fmt.Errorf("server does not support %s capability", ConfirmedCommitCapability)
 	}
 	if req.PersistID != "" && req.Confirmed {
 		return fmt.Errorf("PersistID cannot be used with Confirmed/ConfirmedTimeout or Persist options")
@@ -494,7 +496,7 @@ func (s *Session) Commit(ctx context.Context, opts ...CommitOption) error {
 	return s.call(ctx, req, nil)
 }
 
-// CancelCommitOption is a optional arguments to [Session.CancelCommit] method.
+// CancelCommitOption is an optional arguments to [Session.CancelCommit] method.
 type CancelCommitOption interface {
 	applyCancelCommit(*CancelCommitRequest)
 }
@@ -517,8 +519,13 @@ func NewCancelCommitRequest(opts ...CancelCommitOption) *CancelCommitRequest {
 
 // CancelCommit issues the `<cancel-commit/>` operation as defined in [RFC6241 8.4.4.1].
 //
+// This requires the device to support the [ConfirmedCommitCapability] capability
+//
 // [RFC6241 8.4.4.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-8.4.4.1
 func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) error {
+	if !s.serverCaps.Has(ConfirmedCommitCapability) {
+		return fmt.Errorf("server does not support %s capability", ConfirmedCommitCapability)
+	}
 	_, err := s.do(ctx, NewCancelCommitRequest(opts...))
 	return err
 }

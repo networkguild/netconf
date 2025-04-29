@@ -245,7 +245,7 @@ func (s *Session) recv() {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
-			s.logger.Errorf("failed to read incoming message(#d), error: %v", s.sessionID, err)
+			s.logger.Errorf("failed to read incoming message(%d), error: %v", s.sessionID, err)
 		}
 	}
 

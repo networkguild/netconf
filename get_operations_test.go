@@ -49,6 +49,7 @@ func TestGetConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess, _ := newSession(WithTransport(ts.transport()))
+			sess.serverCaps = newCapabilitySet(append(DefaultCapabilities, "urn:ietf:params:netconf:capability:with-defaults:1.0?basic-mode=report-all&also-supported=explicit,trim")...)
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
@@ -103,25 +104,36 @@ func TestGet(t *testing.T) {
 				regexp.MustCompile(`<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" format="set">\S*<filter type="subtree">\S*<configuration/>\S*</filter>\S*<with-defaults xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults">report-all</with-defaults>\S*</get>`),
 			},
 		},
+		{
+			name: "get with unsupported capability fails",
+			options: []GetOption{
+				WithDefaultMode("trim"),
+			},
+		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ts := newTestServer(t)
 			sess, _ := newSession(WithTransport(ts.transport()))
+			sess.serverCaps = newCapabilitySet(append(DefaultCapabilities, "urn:ietf:params:netconf:capability:with-defaults:1.0?basic-mode=report-all&also-supported=explicit")...)
 			go sess.recv()
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><data>daa</data></rpc-reply>`)
 
 			reply, err := sess.Get(t.Context(), tc.options...)
-			require.NoError(t, err)
-			require.NotNil(t, reply)
+			if len(tc.matches) == 0 {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, reply)
 
-			sentMsg, err := ts.popReq()
-			require.NoError(t, err)
+				sentMsg, err := ts.popReq()
+				require.NoError(t, err)
 
-			for _, match := range tc.matches {
-				require.Regexp(t, match, string(sentMsg))
+				for _, match := range tc.matches {
+					require.Regexp(t, match, string(sentMsg))
+				}
 			}
 		})
 	}

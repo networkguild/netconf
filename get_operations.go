@@ -3,6 +3,7 @@ package netconf
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 )
 
 func (f Filter) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
@@ -19,6 +20,17 @@ type GetRequest struct {
 	Source       *Datastore   `xml:"source,omitempty"`
 	Filter       Filter       `xml:"filter,omitempty"`
 	WithDefaults DefaultsMode `xml:"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults with-defaults,omitempty"`
+}
+
+func (r *GetRequest) validate(cap capabilitySet) error {
+	if r.WithDefaults != "" {
+		isValid := cap.ContainsValue(WithDefaultsCapability, "basic-mode", string(r.WithDefaults)) ||
+			cap.ContainsValue(WithDefaultsCapability, "also-supported", string(r.WithDefaults))
+		if !isValid {
+			return fmt.Errorf("unsupport with defaults value: %s", r.WithDefaults)
+		}
+	}
+	return nil
 }
 
 func NewGetConfigRequest(source Datastore, opts ...GetOption) *GetRequest {
@@ -98,7 +110,11 @@ type GetOption interface {
 //
 // [RFC6241 7.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.1
 func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*RpcReply, error) {
-	return s.do(ctx, NewGetConfigRequest(source, opts...))
+	req := NewGetConfigRequest(source, opts...)
+	if err := req.validate(s.serverCaps); err != nil {
+		return nil, err
+	}
+	return s.do(ctx, req)
 }
 
 // Get issues the `<get>` operation as defined in [RFC6241 7.7]
@@ -108,13 +124,10 @@ func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOp
 //
 // [RFC6241 7.7] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.7
 func (s *Session) Get(ctx context.Context, opts ...GetOption) (*RpcReply, error) {
-	req := GetRequest{
-		XMLName: xml.Name{Space: baseNetconfNs, Local: "get"},
+	req := NewGetRequest(opts...)
+	if err := req.validate(s.serverCaps); err != nil {
+		return nil, err
 	}
 
-	for _, opt := range opts {
-		opt.apply(&req)
-	}
-
-	return s.do(ctx, NewGetRequest(opts...))
+	return s.do(ctx, req)
 }
