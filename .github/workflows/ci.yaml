@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     types:
       - opened
@@ -60,6 +60,7 @@ jobs:
     needs:
       - build
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/create-github-app-token@v2
         id: app-token
         with:
@@ -68,7 +69,6 @@ jobs:
       - uses: googleapis/release-please-action@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
-          release-type: go
           skip-github-pull-request: true
 
   release-pr:
@@ -78,6 +78,7 @@ jobs:
       pull-requests: write
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/create-github-app-token@v2
         id: app-token
         with:
@@ -86,7 +87,6 @@ jobs:
       - uses: googleapis/release-please-action@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
-          release-type: go
           skip-github-release: true
 
   automerge:
