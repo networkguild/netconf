@@ -1,9 +1,11 @@
 version: 2
 updates:
-  - package-ecosystem: "gomod" 
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "daily"
+    commit-message:
+      prefix: "chore"
     groups:
       minor-dependencies:
         patterns:
@@ -20,6 +22,8 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    commit-message:
+      prefix: "chore"
     groups:
       actions:
         patterns:

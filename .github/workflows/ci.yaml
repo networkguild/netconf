@@ -11,11 +11,12 @@ on:
       - reopened
 
 env:
- GO111MODULE: on
+  GO111MODULE: on
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.actor != 'networkguild-bot[bot]' || !contains(github.event.pull_request.title, 'release') }}
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -24,7 +25,7 @@ jobs:
       - name: Setup Go
         uses: WillAbides/setup-go-faster@v1.14.0
         with:
-          go-version: '1.24.x'
+          go-version: "1.24.x"
 
       - name: Ensure dependencies
         run: |
@@ -50,7 +51,27 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  release-please:
+  release:
+    if: ${{ github.event_name != 'pull_request'}}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    needs:
+      - build
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.BOT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          release-type: go
+          skip-github-pull-request: true
+
+  release-pr:
     if: ${{ github.event_name != 'pull_request'}}
     runs-on: ubuntu-latest
     permissions:
@@ -66,6 +87,7 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           release-type: go
+          skip-github-release: true
 
   automerge:
     if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'}}
@@ -76,7 +98,13 @@ jobs:
       pull-requests: write
       contents: write
     steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.BOT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
       - name: Automerge dependabot PR
         uses: fastify/github-action-merge-dependabot@v3
         with:
           target: minor
+          token: ${{ steps.app-token.outputs.token }}
