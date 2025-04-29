@@ -222,6 +222,10 @@ func TestUnmarshalRPCReply(t *testing.T) {
 			name:  "error",
 			reply: replyJunosGetConfigError,
 			want: RpcReply{
+				XMLName: xml.Name{
+					Local: "rpc-reply",
+					Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
+				},
 				MessageID: 1,
 				Errors: []RPCError{
 					{

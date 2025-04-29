@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
   pull_request:
     types:
       - opened
@@ -47,6 +49,23 @@ jobs:
         uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  release-please:
+    if: ${{ github.event_name != 'pull_request'}}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.BOT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          release-type: go
 
   automerge:
     if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'}}
