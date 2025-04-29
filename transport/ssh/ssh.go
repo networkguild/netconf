@@ -12,7 +12,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// alias it to a private type, so we can make it private when embedding
 type framer = internal.Framer
 
 // Transport implements RFC6242 for implementing NETCONF protocol over SSH.
@@ -30,7 +29,7 @@ type Opt func(*Transport)
 
 func WithDebugCapture(in io.Writer, out io.Writer) Opt {
 	return func(t *Transport) {
-		t.framer.DebugCapture(in, out)
+		t.DebugCapture(in, out)
 	}
 }
 
@@ -116,7 +115,7 @@ func newTransport(client *ssh.Client, managed bool, opts ...Opt) (*Transport, er
 }
 
 // Close will close the underlying transport.
-// Underlying ssh.Client is closed if managed by transport (created by Dial)
+// Underlying ssh.Client is closed if managed by transport (created by Dial).
 func (t *Transport) Close() error {
 	if t.managed {
 		return errors.Join(t.stdin.Close(), t.sess.Close(), t.c.Close())

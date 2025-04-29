@@ -1,7 +1,6 @@
 package netconf
 
 import (
-	"context"
 	"regexp"
 	"testing"
 	"time"
@@ -10,8 +9,8 @@ import (
 )
 
 func TestCreateSubscription(t *testing.T) {
-	start := time.Date(2023, time.June, 07, 18, 31, 48, 00, time.UTC)
-	end := time.Date(2023, time.June, 07, 18, 33, 48, 00, time.UTC)
+	start := time.Date(2023, time.June, 0o7, 18, 31, 48, 0o0, time.UTC)
+	end := time.Date(2023, time.June, 0o7, 18, 33, 48, 0o0, time.UTC)
 
 	tt := []struct {
 		name    string
@@ -68,7 +67,7 @@ func TestCreateSubscription(t *testing.T) {
 
 			ts.queueRespString(`<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><ok/></rpc-reply>`)
 
-			err := sess.CreateSubscription(context.Background(), tc.options...)
+			err := sess.CreateSubscription(t.Context(), tc.options...)
 			require.NoError(t, err)
 
 			sentMsg, err := ts.popReq()

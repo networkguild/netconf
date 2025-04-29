@@ -100,9 +100,7 @@ func newTestServer(t *testing.T, handlerFn func(*testing.T, ssh.Channel, <-chan 
 }
 
 func TestTransport(t *testing.T) {
-	var (
-		srvIn bytes.Buffer
-	)
+	var srvIn bytes.Buffer
 	srvDone := make(chan struct{})
 	server, err := newTestServer(t, func(t *testing.T, ch ssh.Channel, reqs <-chan *ssh.Request) {
 		go func() {
@@ -120,6 +118,7 @@ func TestTransport(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &ssh.ClientConfig{
+		//nolint:gosec
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	tr, err := Dial(context.Background(), "tcp", server.addr.String(), config, WithDebugCapture(os.Stdout, os.Stdout))

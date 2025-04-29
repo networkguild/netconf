@@ -15,11 +15,11 @@ var (
 
 	// ErrInvalidIO is returned when a write or read operation is called on
 	// message io.Reader or a message io.Writer when they are no longer valid.
-	// (i.e a new reader or writer has been obtained)
+	// (i.e a new reader or writer has been obtained).
 	ErrInvalidIO = errors.New("netconf: read/write on invalid io")
 
 	// ErrMalformedChunk represents a message that invalid as defined in the chunk
-	// framing in RFC6242
+	// framing in RFC6242.
 	ErrMalformedChunk = errors.New("netconf: invalid chunk")
 )
 
@@ -64,8 +64,6 @@ func NewFramer(r io.Reader, w io.Writer) *Framer {
 // `io.Writers` for sent or recv data.  Either sent of recv can be nil to not
 // capture any data.
 // Useful for displaying to a screen or capturing to a file for debugging.
-//
-// This needs to be called before `MsgReader` or `MsgWriter`.
 func (f *Framer) DebugCapture(in io.Writer, out io.Writer) {
 	if f.curReader != nil ||
 		f.curWriter != nil ||
@@ -132,6 +130,45 @@ type chunkReader struct {
 	chunkLeft int
 }
 
+func (r *chunkReader) Read(p []byte) (int, error) {
+	if r.r == nil {
+		return 0, ErrInvalidIO
+	}
+
+	if r.chunkLeft <= 0 {
+		if err := r.readHeader(); err != nil {
+			return 0, err
+		}
+	}
+
+	if len(p) > r.chunkLeft {
+		p = p[:r.chunkLeft]
+	}
+
+	n, err := r.r.Read(p)
+	r.chunkLeft -= n
+	return n, err
+}
+
+func (r *chunkReader) ReadByte() (byte, error) {
+	if r.r == nil {
+		return 0, ErrInvalidIO
+	}
+
+	if r.chunkLeft <= 0 {
+		if err := r.readHeader(); err != nil {
+			return 0, err
+		}
+	}
+
+	b, err := r.r.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	r.chunkLeft--
+	return b, nil
+}
+
 func (r *chunkReader) readHeader() error {
 	peeked, err := r.r.Peek(4)
 	switch err {
@@ -183,45 +220,6 @@ func (r *chunkReader) readHeader() error {
 	return nil
 }
 
-func (r *chunkReader) Read(p []byte) (int, error) {
-	if r.r == nil {
-		return 0, ErrInvalidIO
-	}
-
-	if r.chunkLeft <= 0 {
-		if err := r.readHeader(); err != nil {
-			return 0, err
-		}
-	}
-
-	if len(p) > r.chunkLeft {
-		p = p[:r.chunkLeft]
-	}
-
-	n, err := r.r.Read(p)
-	r.chunkLeft -= n
-	return n, err
-}
-
-func (r *chunkReader) ReadByte() (byte, error) {
-	if r.r == nil {
-		return 0, ErrInvalidIO
-	}
-
-	if r.chunkLeft <= 0 {
-		if err := r.readHeader(); err != nil {
-			return 0, err
-		}
-	}
-
-	b, err := r.r.ReadByte()
-	if err != nil {
-		return 0, err
-	}
-	r.chunkLeft--
-	return b, nil
-}
-
 // Close will read the rest of the frame and consume it including
 // the end-of-frame markers if we haven't already done so.
 func (r *chunkReader) Close() error {
@@ -262,7 +260,7 @@ type eomReader struct {
 }
 
 func (r *eomReader) Read(p []byte) (int, error) {
-	for i := 0; i < len(p); i++ {
+	for i := range p {
 		b, err := r.ReadByte()
 		if err != nil {
 			return i, err
@@ -279,31 +277,33 @@ func (r *eomReader) ReadByte() (byte, error) {
 
 	b, err := r.r.ReadByte()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return b, io.ErrUnexpectedEOF
 		}
 		return b, err
 	}
 
-	if b == endOfMsg[0] {
-		peeked, err := r.r.Peek(len(endOfMsg) - 1)
-		if err != nil {
-			if err == io.EOF {
-				return 0, io.ErrUnexpectedEOF
-			}
-			return 0, err
-		}
-
-		if bytes.Equal(peeked, endOfMsg[1:]) {
-			if _, err := r.r.Discard(len(endOfMsg) - 1); err != nil {
-				return 0, err
-			}
-
-			return 0, io.EOF
-		}
+	if b != endOfMsg[0] {
+		return b, nil
 	}
 
-	return b, nil
+	peeked, err := r.r.Peek(len(endOfMsg) - 1)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return 0, io.ErrUnexpectedEOF
+		}
+		return 0, err
+	}
+
+	if !bytes.Equal(peeked, endOfMsg[1:]) {
+		return b, nil
+	}
+
+	if _, err := r.r.Discard(len(endOfMsg) - 1); err != nil {
+		return 0, err
+	}
+
+	return 0, io.EOF
 }
 
 // Close will read the rest of the frame and consume it including

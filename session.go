@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/networkguild/netconf/transport"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 var pool = sync.Pool{
@@ -22,7 +23,7 @@ var pool = sync.Pool{
 	},
 }
 
-// ISession is definition of the operations that this netconf client provides
+// ISession is definition of the operations that this netconf client provides.
 type ISession interface {
 	SessionID() uint64
 	ClientCapabilities() []string
@@ -53,42 +54,49 @@ type SessionOption interface {
 	apply(*Session)
 }
 
-type sessionOpt struct{ fn func(cfg *Session) }
+type sessionOpt struct{ fn func(sess *Session) }
 
 func (o sessionOpt) apply(cl *Session) { o.fn(cl) }
 
-// WithTransport sets the transport for the session
+// WithTransport sets the transport for the session.
 func WithTransport(transport transport.Transport) SessionOption {
-	return sessionOpt{func(cfg *Session) {
-		cfg.tr = transport
+	return sessionOpt{func(sess *Session) {
+		sess.tr = transport
 	}}
 }
 
-// WithCapabilities sets supported client capabilities for the session
+// WithCapabilities sets supported client capabilities for the session.
 func WithCapabilities(capabilities ...string) SessionOption {
-	return sessionOpt{func(cfg *Session) {
-		cfg.clientCaps = newCapabilitySet(capabilities...)
+	return sessionOpt{func(sess *Session) {
+		sess.clientCaps = newCapabilitySet(capabilities...)
 	}}
 }
 
-// WithNotificationHandler sets the notification handler for the session
+// WithNotificationHandler sets the notification handler for the session.
 func WithNotificationHandler(nh NotificationHandler) SessionOption {
-	return sessionOpt{func(cfg *Session) {
-		cfg.notificationHandler = nh
+	return sessionOpt{func(sess *Session) {
+		sess.notificationHandler = nh
 	}}
 }
 
-// WithLogger sets the logger for the session
+// WithLogger sets the logger for the session.
 func WithLogger(logger Logger) SessionOption {
-	return sessionOpt{func(cfg *Session) {
-		cfg.logger = logger
+	return sessionOpt{func(sess *Session) {
+		sess.logger = logger
 	}}
 }
 
-// WithErrorSeverity sets the severity level for errors returned by the server. Defaults are SevWarning, SevError
+// WithErrorSeverity sets the severity level for errors returned by the server. Defaults are SevWarning, SevError.
 func WithErrorSeverity(severity ...ErrSeverity) SessionOption {
-	return sessionOpt{func(cfg *Session) {
-		cfg.errSeverity = severity
+	return sessionOpt{func(sess *Session) {
+		sess.errSeverity = severity
+	}}
+}
+
+// WithHelloTimeout sets the timeout for hello messages. Default is 30 seconds.
+func WithHelloTimeout(timeout time.Duration) SessionOption {
+	return sessionOpt{func(sess *Session) {
+		sess.helloTimeout = timeout
 	}}
 }
 
@@ -106,9 +114,10 @@ type Session struct {
 	notificationHandler NotificationHandler
 	errSeverity         []ErrSeverity
 
-	mu      sync.Mutex
-	reqs    map[uint64]*req
-	closing bool
+	mu           sync.Mutex
+	helloTimeout time.Duration
+	reqs         *xsync.Map[uint64, chan RpcReply]
+	closing      atomic.Bool
 }
 
 // NotificationHandler function allows to work with received notifications.
@@ -117,8 +126,8 @@ type Session struct {
 // that they can be parsed and/or stored somewhere.
 type NotificationHandler func(msg Notification)
 
-// NewSession will create a new Session with th=e given transport and open it with the
-// necessary hello messages.
+// NewSession will create a new Session with the given transport and exchange hello messages.
+// Context is used in handshake together with WithHelloTimeout option.
 // WithTransport SessionOption is required to set the transport for the session.
 func NewSession(ctx context.Context, opts ...SessionOption) (ISession, error) {
 	s, err := newSession(opts...)
@@ -136,9 +145,10 @@ func NewSession(ctx context.Context, opts ...SessionOption) (ISession, error) {
 
 func newSession(opts ...SessionOption) (*Session, error) {
 	sess := Session{
-		clientCaps: newCapabilitySet(DefaultCapabilities...),
-		reqs:       make(map[uint64]*req),
-		logger:     &noOpLogger{},
+		clientCaps:   newCapabilitySet(DefaultCapabilities...),
+		reqs:         xsync.NewMap[uint64, chan RpcReply](),
+		helloTimeout: 30 * time.Second,
+		logger:       &noOpLogger{},
 	}
 
 	for _, opt := range opts {
@@ -157,11 +167,9 @@ type CloseSessionRequest struct {
 }
 
 // Close will gracefully close the sessions first by sending a `close-session`
-// operation to the remote and then closing the underlying transport
+// operation to the remote and then closing the underlying transport.
 func (s *Session) Close(ctx context.Context) error {
-	s.mu.Lock()
-	s.closing = true
-	s.mu.Unlock()
+	s.closing.Store(true)
 
 	_, callErr := s.do(ctx, new(CloseSessionRequest))
 
@@ -181,6 +189,8 @@ func (s *Session) handshake(ctx context.Context) error {
 	clientMsg := Hello{
 		Capabilities: s.clientCaps.All(),
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.writeMsg(&clientMsg); err != nil {
 		return fmt.Errorf("failed to write hello message: %w", err)
 	}
@@ -191,7 +201,7 @@ func (s *Session) handshake(ctx context.Context) error {
 	}()
 
 	select {
-	case <-time.After(30 * time.Second):
+	case <-time.After(s.helloTimeout):
 		return errors.New("timeout waiting for hello")
 	case <-ctx.Done():
 		return ctx.Err()
@@ -229,28 +239,23 @@ func (s *Session) Logger() Logger {
 	return s.logger
 }
 
-type req struct {
-	reply chan RpcReply
-	ctx   context.Context
-}
-
 func (s *Session) recv() {
 	for {
 		if err := s.recvMsg(); err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
-			s.logger.Errorf("failed to read incoming message, sessionId: %d, error: %v", s.sessionID, err)
+			s.logger.Errorf("failed to read incoming message(%d), error: %v", s.sessionID, err)
 		}
 	}
 
-	s.mu.Lock()
-	for _, req := range s.reqs {
-		close(req.reply)
-	}
-	s.mu.Unlock()
+	s.reqs.Range(func(key uint64, ch chan RpcReply) bool {
+		close(ch)
+		return true
+	})
+	s.reqs.Clear()
 
-	if !s.closing {
+	if !s.closing.Load() {
 		s.logger.Errorf("connection closed unexpectedly, sessionId: %d", s.sessionID)
 	}
 }
@@ -281,16 +286,17 @@ func (s *Session) recvMsg() error {
 		if err := dec.DecodeElement(&rpcReply, elem); err != nil {
 			return fmt.Errorf("failed to decode rpc-reply message: %w", err)
 		}
+
 		ok, req := s.req(rpcReply.MessageID)
 		if !ok {
 			return fmt.Errorf("cannot find reply channel for message-id: %d", rpcReply.MessageID)
 		}
 
 		select {
-		case req.reply <- rpcReply:
+		case req <- rpcReply:
 			return nil
-		case <-req.ctx.Done():
-			return fmt.Errorf("message %d context canceled: %w", rpcReply.MessageID, req.ctx.Err())
+		default:
+			return fmt.Errorf("message %d channel closed", rpcReply.MessageID)
 		}
 	case "notification":
 		notif := Notification{rpc: raw}
@@ -335,9 +341,14 @@ func (s *Session) readWithPoolBuffer() ([]byte, error) {
 	}
 	defer r.Close()
 
-	buf := pool.Get().(*bytes.Buffer)
-	defer pool.Put(buf)
-	buf.Reset()
+	buf, ok := pool.Get().(*bytes.Buffer)
+	if !ok {
+		return nil, fmt.Errorf("failed to get buffer from pool")
+	}
+	defer func() {
+		buf.Reset()
+		pool.Put(buf)
+	}()
 
 	_, err = io.Copy(buf, r)
 	if err != nil {
@@ -346,31 +357,21 @@ func (s *Session) readWithPoolBuffer() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *Session) req(msgID uint64) (bool, *req) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	req, ok := s.reqs[msgID]
+func (s *Session) req(msgID uint64) (bool, chan RpcReply) {
+	req, ok := s.reqs.LoadAndDelete(msgID)
 	if !ok {
-		for i, r := range s.reqs {
-			if fb := s.seq.Load(); i == fb {
-				delete(s.reqs, fb)
-				return true, r
-			}
+		req, ok = s.reqs.LoadAndDelete(s.seq.Load())
+		if ok {
+			return true, req
 		}
 		return false, nil
 	}
-	delete(s.reqs, msgID)
 	return true, req
 }
 
 func (s *Session) call(ctx context.Context, req any, resp any) error {
 	reply, err := s.do(ctx, req)
 	if err != nil {
-		return err
-	}
-
-	if err := reply.Err(); err != nil {
 		return err
 	}
 
@@ -389,7 +390,7 @@ func (s *Session) do(ctx context.Context, req any) (*RpcReply, error) {
 		Operation: req,
 	}
 
-	ch, err := s.send(ctx, msg)
+	ch, err := s.send(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -404,15 +405,13 @@ func (s *Session) do(ctx context.Context, req any) (*RpcReply, error) {
 		}
 		return &reply, nil
 	case <-ctx.Done():
-		s.mu.Lock()
-		delete(s.reqs, msg.MessageID)
-		s.mu.Unlock()
-
+		s.reqs.Delete(msg.MessageID)
+		close(ch)
 		return nil, ctx.Err()
 	}
 }
 
-func (s *Session) send(ctx context.Context, msg *Rpc) (chan RpcReply, error) {
+func (s *Session) send(msg *Rpc) (chan RpcReply, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -421,10 +420,7 @@ func (s *Session) send(ctx context.Context, msg *Rpc) (chan RpcReply, error) {
 	}
 
 	ch := make(chan RpcReply, 1)
-	s.reqs[msg.MessageID] = &req{
-		reply: ch,
-		ctx:   ctx,
-	}
+	s.reqs.Store(msg.MessageID, ch)
 
 	return ch, nil
 }
