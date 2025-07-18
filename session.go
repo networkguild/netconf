@@ -30,20 +30,20 @@ type ISession interface {
 	ServerCapabilities() []string
 	HasCapability(string) bool
 	Logger() Logger
-	GetConfig(context.Context, Datastore, ...GetOption) (*RpcReply, error)
-	Get(context.Context, ...GetOption) (*RpcReply, error)
+	GetConfig(context.Context, Datastore, ...GetOption) (*RPCReply, error)
+	Get(context.Context, ...GetOption) (*RPCReply, error)
 	EditConfig(context.Context, Datastore, any, ...EditConfigOption) error
 	DiscardChanges(context.Context) error
 	CopyConfig(context.Context, any, any) error
 	DeleteConfig(context.Context, Datastore) error
 	Lock(context.Context, Datastore) error
 	Unlock(context.Context, Datastore) error
-	KillSession(context.Context, uint64) (*RpcReply, error)
+	KillSession(context.Context, uint64) (*RPCReply, error)
 	Close(context.Context) error
 	Validate(context.Context, any) error
 	Commit(context.Context, ...CommitOption) error
 	CancelCommit(context.Context, ...CancelCommitOption) error
-	Dispatch(context.Context, any) (*RpcReply, error)
+	Dispatch(context.Context, any) (*RPCReply, error)
 	DispatchWithReply(context.Context, any, any) error
 	CreateSubscription(context.Context, ...CreateSubscriptionOption) error
 }
@@ -116,7 +116,7 @@ type Session struct {
 
 	mu           sync.Mutex
 	helloTimeout time.Duration
-	reqs         *xsync.Map[uint64, chan RpcReply]
+	reqs         *xsync.Map[uint64, chan RPCReply]
 	closing      atomic.Bool
 }
 
@@ -146,7 +146,7 @@ func NewSession(ctx context.Context, opts ...SessionOption) (ISession, error) {
 func newSession(opts ...SessionOption) (*Session, error) {
 	sess := Session{
 		clientCaps:   newCapabilitySet(DefaultCapabilities...),
-		reqs:         xsync.NewMap[uint64, chan RpcReply](),
+		reqs:         xsync.NewMap[uint64, chan RPCReply](),
 		helloTimeout: 30 * time.Second,
 		logger:       &noOpLogger{},
 	}
@@ -253,7 +253,7 @@ func (s *Session) recv() {
 		}
 	}
 
-	s.reqs.Range(func(key uint64, ch chan RpcReply) bool {
+	s.reqs.Range(func(key uint64, ch chan RPCReply) bool {
 		close(ch)
 		return true
 	})
@@ -286,7 +286,7 @@ func (s *Session) recvMsg() error {
 
 	switch elem.Name.Local {
 	case "rpc-reply":
-		rpcReply := RpcReply{rpc: raw}
+		rpcReply := RPCReply{rpc: raw}
 		if err := dec.DecodeElement(&rpcReply, elem); err != nil {
 			return fmt.Errorf("failed to decode rpc-reply message: %w", err)
 		}
@@ -361,7 +361,7 @@ func (s *Session) readWithPoolBuffer() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *Session) req(msgID uint64) (bool, chan RpcReply) {
+func (s *Session) req(msgID uint64) (bool, chan RPCReply) {
 	req, ok := s.reqs.LoadAndDelete(msgID)
 	if !ok {
 		req, ok = s.reqs.LoadAndDelete(s.seq.Load())
@@ -388,8 +388,8 @@ func (s *Session) call(ctx context.Context, req any, resp any) error {
 	return nil
 }
 
-func (s *Session) do(ctx context.Context, req any) (*RpcReply, error) {
-	msg := &Rpc{
+func (s *Session) do(ctx context.Context, req any) (*RPCReply, error) {
+	msg := &RPC{
 		MessageID: s.seq.Add(1),
 		Operation: req,
 	}
@@ -415,7 +415,7 @@ func (s *Session) do(ctx context.Context, req any) (*RpcReply, error) {
 	}
 }
 
-func (s *Session) send(msg *Rpc) (chan RpcReply, error) {
+func (s *Session) send(msg *RPC) (chan RPCReply, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -423,7 +423,7 @@ func (s *Session) send(msg *Rpc) (chan RpcReply, error) {
 		return nil, err
 	}
 
-	ch := make(chan RpcReply, 1)
+	ch := make(chan RPCReply, 1)
 	s.reqs.Store(msg.MessageID, ch)
 
 	return ch, nil

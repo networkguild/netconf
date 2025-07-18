@@ -183,7 +183,7 @@ func TestMarshalRPCMsg(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			out, err := xml.Marshal(&Rpc{
+			out, err := xml.Marshal(&RPC{
 				MessageID: 1,
 				Operation: tc.operation,
 			})
@@ -216,12 +216,12 @@ func TestUnmarshalRPCReply(t *testing.T) {
 	tt := []struct {
 		name  string
 		reply []byte
-		want  RpcReply
+		want  RPCReply
 	}{
 		{
 			name:  "error",
 			reply: replyJunosGetConfigError,
-			want: RpcReply{
+			want: RPCReply{
 				XMLName: xml.Name{
 					Local: "rpc-reply",
 					Space: "urn:ietf:params:xml:ns:netconf:base:1.0",
@@ -244,7 +244,7 @@ func TestUnmarshalRPCReply(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			var got RpcReply
+			var got RPCReply
 			err := xml.Unmarshal(tc.reply, &got)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)

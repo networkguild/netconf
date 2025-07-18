@@ -109,7 +109,7 @@ type GetOption interface {
 // `source` is the datastore to query.
 //
 // [RFC6241 7.1]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.1
-func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*RpcReply, error) {
+func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOption) (*RPCReply, error) {
 	req := NewGetConfigRequest(source, opts...)
 	if err := req.validate(s.serverCaps); err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (s *Session) GetConfig(ctx context.Context, source Datastore, opts ...GetOp
 // Only the `subtree` filter type is supported.
 //
 // [RFC6241 7.7] https://www.rfc-editor.org/rfc/rfc6241.html#section-7.7
-func (s *Session) Get(ctx context.Context, opts ...GetOption) (*RpcReply, error) {
+func (s *Session) Get(ctx context.Context, opts ...GetOption) (*RPCReply, error) {
 	req := NewGetRequest(opts...)
 	if err := req.validate(s.serverCaps); err != nil {
 		return nil, err

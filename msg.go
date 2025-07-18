@@ -33,18 +33,18 @@ func (x *RawXML) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return e.EncodeElement(&inner, start)
 }
 
-type Rpc struct {
+type RPC struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc"`
 	MessageID uint64   `xml:"message-id,attr"`
 	Operation any      `xml:",innerxml"`
 }
 
-func (msg *Rpc) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+func (msg *RPC) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 	if msg.Operation == nil {
 		return fmt.Errorf("operation cannot be nil")
 	}
 
-	type rpcMsg Rpc
+	type rpcMsg RPC
 	inner := rpcMsg(*msg)
 	return e.Encode(&inner)
 }
@@ -55,26 +55,26 @@ type Hello struct {
 	Capabilities []string `xml:"capabilities>capability"`
 }
 
-type RpcReply struct {
+type RPCReply struct {
 	XMLName   xml.Name
 	MessageID uint64    `xml:"message-id,attr"`
 	Errors    RPCErrors `xml:"rpc-error,omitempty"`
 	rpc       []byte
 }
 
-func (r RpcReply) Decode(v any) error {
+func (r RPCReply) Decode(v any) error {
 	return xml.Unmarshal(r.rpc, v)
 }
 
-func (r RpcReply) String() string {
+func (r RPCReply) String() string {
 	return string(r.rpc)
 }
 
-func (r RpcReply) Raw() []byte {
+func (r RPCReply) Raw() []byte {
 	return r.rpc
 }
 
-func (r RpcReply) Err(severity ...ErrSeverity) error {
+func (r RPCReply) Err(severity ...ErrSeverity) error {
 	if len(r.Errors) == 0 {
 		return nil
 	}

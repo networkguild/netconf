@@ -371,7 +371,7 @@ type KillSessionRequest struct {
 // for force terminating the NETCONF session.
 //
 // [RFC6241 7.9]: https://www.rfc-editor.org/rfc/rfc6241.html#section-7.9
-func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*RpcReply, error) {
+func (s *Session) KillSession(ctx context.Context, sessionID uint64) (*RPCReply, error) {
 	req := KillSessionRequest{
 		SessionID: sessionID,
 	}
@@ -530,8 +530,8 @@ func (s *Session) CancelCommit(ctx context.Context, opts ...CancelCommitOption) 
 	return err
 }
 
-// Dispatch issues custom `<rpc>` operation and returns RpcReply.
-func (s *Session) Dispatch(ctx context.Context, rpc any) (*RpcReply, error) {
+// Dispatch issues custom `<rpc>` operation and returns RPCReply.
+func (s *Session) Dispatch(ctx context.Context, rpc any) (*RPCReply, error) {
 	return s.do(ctx, &rpc)
 }
 
