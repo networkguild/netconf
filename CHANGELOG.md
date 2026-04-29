@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/networkguild/netconf/compare/v1.4.1...v1.4.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* **session:** set CharsetReader to handle non-UTF-8 XML encodings ([a1e6611](https://github.com/networkguild/netconf/commit/a1e6611592734c5ca5cd363d55725ce844400939))
+
 ## [1.4.1](https://github.com/networkguild/netconf/compare/v1.4.0...v1.4.1) (2025-07-18)
 
 
