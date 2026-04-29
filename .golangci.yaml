@@ -19,6 +19,7 @@ linters:
     - gosec
     - makezero
     - misspell
+    - modernize
     - nakedret
     - nestif
     - nolintlint

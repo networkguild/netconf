@@ -212,7 +212,7 @@ func BenchmarkChunkedReadByte(b *testing.B) {
 	for _, bc := range readers {
 		b.Run(bc.name, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, _ = bc.r.ReadByte()
 				b.SetBytes(1)
 			}
@@ -236,7 +236,7 @@ func BenchmarkChunkedRead(b *testing.B) {
 	for _, bc := range readers {
 		b.Run(bc.name, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				src.Reset(rfcChunkedRPC)
 				dstBuf.Reset()
 				n, err := io.Copy(&dst, bc.r)
@@ -390,7 +390,7 @@ func BenchmarkEOMReadByte(b *testing.B) {
 	for _, bc := range readers {
 		b.Run(bc.name, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, _ = bc.r.ReadByte()
 				b.SetBytes(1)
 			}
@@ -415,7 +415,7 @@ func BenchmarkEOMRead(b *testing.B) {
 	for _, bc := range readers {
 		b.Run(bc.name, func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				src.Reset(rfcEOMRPC)
 				dstBuf.Reset()
 				n, err := io.Copy(&dst, bc.r)

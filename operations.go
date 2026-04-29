@@ -238,7 +238,7 @@ func NewEditConfigRequest(target Datastore, config any, opts ...EditConfigOption
 	case []byte:
 		v = bytes.TrimSpace(v)
 		if !bytes.HasSuffix(v, []byte(configSuffix)) {
-			v = []byte(fmt.Sprintf("%s\n%s\n%s", configPrefix+">", v, configSuffix))
+			v = fmt.Appendf(nil, "%s\n%s\n%s", configPrefix+">", v, configSuffix)
 		}
 		req.Inner = v
 	case URL:
