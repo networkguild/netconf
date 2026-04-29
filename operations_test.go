@@ -214,7 +214,7 @@ func TestDiscardChanges(t *testing.T) {
 	}{
 		{
 			name:  "discard-changes",
-			match: `<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><discard-changes xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"></discard-changes></rpc>`,
+			match: xml.Header + `<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1"><discard-changes xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"></discard-changes></rpc>`,
 		},
 	}
 
