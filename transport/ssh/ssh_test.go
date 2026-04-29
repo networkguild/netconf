@@ -2,7 +2,6 @@ package ssh
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -121,7 +120,7 @@ func TestTransport(t *testing.T) {
 		//nolint:gosec
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	tr, err := Dial(context.Background(), "tcp", server.addr.String(), config, WithDebugCapture(os.Stdout, os.Stdout))
+	tr, err := Dial(t.Context(), "tcp", server.addr.String(), config, WithDebugCapture(os.Stdout, os.Stdout))
 	require.NoError(t, err)
 
 	// test read

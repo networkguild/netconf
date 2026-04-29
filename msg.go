@@ -1,12 +1,12 @@
 package netconf
 
 import (
+	"cmp"
 	"encoding/xml"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slices"
 )
 
 type RawXML []byte
@@ -160,11 +160,7 @@ type RPCError struct {
 }
 
 func (e RPCError) Error() string {
-	if e.Message != "" {
-		return e.Message
-	} else {
-		return string(e.Info)
-	}
+	return cmp.Or(e.Message, string(e.Info))
 }
 
 type RPCErrors []RPCError
