@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type testServer struct {
@@ -88,4 +90,22 @@ func (s *testTransport) Close() error {
 		return fmt.Errorf("testtransport: remaining outboard messages not sent at close")
 	}
 	return nil
+}
+
+func TestNonUTF8HelloMessage(t *testing.T) {
+	ts := newTestServer(t)
+	sess, err := newSession(WithTransport(ts.transport()))
+	require.NoError(t, err)
+
+	ts.queueRespString(`<?xml version="1.0" encoding="ISO-8859-1"?>` +
+		`<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">` +
+		`<session-id>42</session-id>` +
+		`<capabilities>` +
+		`<capability>urn:ietf:params:netconf:base:1.0</capability>` +
+		`</capabilities>` +
+		`</hello>`)
+
+	err = sess.handshake(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, uint64(42), sess.SessionID())
 }
