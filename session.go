@@ -105,6 +105,19 @@ func WithErrorSeverity(severity ...ErrSeverity) SessionOption {
 	}}
 }
 
+// WithRPCAttr adds an extra XML attribute to every outgoing <rpc> element.
+// This is typically used to declare vendor-specific namespace prefixes, e.g.:
+//
+//	WithRPCAttr("xmlns:nxos", "http://www.cisco.com/nxos:1.0")
+func WithRPCAttr(name, value string) SessionOption {
+	return sessionOpt{func(sess *Session) {
+		sess.rpcAttrs = append(sess.rpcAttrs, xml.Attr{
+			Name:  xml.Name{Local: name},
+			Value: value,
+		})
+	}}
+}
+
 // WithHelloTimeout sets the timeout for hello messages. Default is 30 seconds.
 func WithHelloTimeout(timeout time.Duration) SessionOption {
 	return sessionOpt{func(sess *Session) {
@@ -125,6 +138,7 @@ type Session struct {
 
 	notificationHandler NotificationHandler
 	errSeverity         []ErrSeverity
+	rpcAttrs            []xml.Attr
 
 	mu           sync.Mutex
 	helloTimeout time.Duration
@@ -404,6 +418,7 @@ func (s *Session) call(ctx context.Context, req any, resp any) error {
 func (s *Session) do(ctx context.Context, req any) (*RPCReply, error) {
 	msg := &RPC{
 		MessageID: s.seq.Add(1),
+		Attrs:     s.rpcAttrs,
 		Operation: req,
 	}
 
@@ -442,12 +457,17 @@ func (s *Session) send(msg *RPC) (chan RPCReply, error) {
 	return ch, nil
 }
 
+var xmlHeader = []byte(xml.Header)
+
 func (s *Session) writeMsg(v any) error {
 	w, err := s.tr.MsgWriter()
 	if err != nil {
 		return err
 	}
 
+	if _, err := w.Write(xmlHeader); err != nil {
+		return err
+	}
 	if err := xml.NewEncoder(w).Encode(v); err != nil {
 		return err
 	}

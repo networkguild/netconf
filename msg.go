@@ -34,9 +34,10 @@ func (x *RawXML) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 }
 
 type RPC struct {
-	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc"`
-	MessageID uint64   `xml:"message-id,attr"`
-	Operation any      `xml:",innerxml"`
+	XMLName   xml.Name   `xml:"urn:ietf:params:xml:ns:netconf:base:1.0 rpc"`
+	MessageID uint64     `xml:"message-id,attr"`
+	Attrs     []xml.Attr `xml:"-"`
+	Operation any        `xml:",innerxml"`
 }
 
 func (msg *RPC) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
@@ -46,7 +47,20 @@ func (msg *RPC) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 
 	type rpcMsg RPC
 	inner := rpcMsg(*msg)
-	return e.Encode(&inner)
+
+	if len(msg.Attrs) == 0 {
+		return e.Encode(&inner)
+	}
+
+	start := xml.StartElement{
+		Name: xml.Name{Space: baseNetconfNs, Local: "rpc"},
+		Attr: append([]xml.Attr{
+			{Name: xml.Name{Local: "message-id"}, Value: fmt.Sprintf("%d", msg.MessageID)},
+		}, msg.Attrs...),
+	}
+	return e.EncodeElement(&struct {
+		Operation any `xml:",innerxml"`
+	}{Operation: inner.Operation}, start)
 }
 
 type Hello struct {
