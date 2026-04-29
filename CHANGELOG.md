@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/networkguild/netconf/compare/v1.4.2...v1.4.3) (2026-04-29)
+
+
+### Bug Fixes
+
+* add XML declaration and vendor namespace support for RPC messages ([#66](https://github.com/networkguild/netconf/issues/66)) ([c823a6d](https://github.com/networkguild/netconf/commit/c823a6db875c19471da86af0f335ba39505fb64c))
+
 ## [1.4.2](https://github.com/networkguild/netconf/compare/v1.4.1...v1.4.2) (2026-04-29)
 
 
