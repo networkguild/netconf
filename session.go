@@ -15,12 +15,24 @@ import (
 
 	"github.com/networkguild/netconf/transport"
 	"github.com/puzpuzpuz/xsync/v4"
+	"golang.org/x/text/encoding/ianaindex"
 )
 
 var pool = sync.Pool{
 	New: func() any {
 		return bytes.NewBuffer(make([]byte, 0, 8096))
 	},
+}
+
+func charsetReader(label string, input io.Reader) (io.Reader, error) {
+	enc, err := ianaindex.IANA.Encoding(label)
+	if err != nil {
+		return nil, err
+	}
+	if enc == nil {
+		return input, nil
+	}
+	return enc.NewDecoder().Reader(input), nil
 }
 
 // ISession is definition of the operations that this netconf client provides.
@@ -272,6 +284,7 @@ func (s *Session) recvMsg() error {
 
 	var elem *xml.StartElement
 	dec := xml.NewDecoder(bytes.NewReader(raw))
+	dec.CharsetReader = charsetReader
 	for {
 		tok, err := dec.Token()
 		if err != nil {
